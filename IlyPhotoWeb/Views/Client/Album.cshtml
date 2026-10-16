@@ -1,0 +1,37 @@
+@model AlbumViewModel
+@{ 
+    ViewData["Title"] = Model.Gallery.Title; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">
+        📅 @Format.Date(Model.Gallery.EventDate)
+      </p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">@Model.Gallery.Title</h1>
+      <p style="color: #666; margin: 0;">@Model.Gallery.PhotoCount high-resolution photos • Click any image to view in full screen</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a class="btn btn-outline" asp-action="Gallery" style="text-decoration: none; padding: 0.75rem 1.25rem;">← Back to Albums</a>
+      <a class="btn btn-primary" asp-action="DownloadAlbum" asp-route-id="@Model.Gallery.Id" style="text-decoration: none; padding: 0.75rem 1.25rem;">
+        ⬇️ Download Full Album (.zip)
+      </a>
+    </div>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 2rem;">
+    @for (int i = 0; i < Model.PhotoUrls.Count; i++)
+    {
+      var url = Model.PhotoUrls[i];
+      <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px; cursor: pointer; height: 260px; position: relative;"
+           onclick="openLightbox('@url', '@Model.Gallery.Title — Photo @(i + 1)')">
+        <img src="@url" alt="@Model.Gallery.Title @(i + 1)" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;"
+             onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'" loading="lazy" />
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.6)); padding: 0.75rem; color: #FFF; font-size: 0.8rem; font-weight: 600;">
+          🔍 Click to enlarge
+        </div>
+      </div>
+    }
+  </div>
+</div>

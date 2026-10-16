@@ -1,0 +1,75 @@
+@model List<GalleryCardViewModel>
+@{ 
+    ViewData["Title"] = "My Photo Galleries"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">PRIVATE CLIENT GALLERIES</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Your Photo Albums</h1>
+      <p style="color: #666; margin: 0;">Explore your private, high-resolution event collections uploaded by ILY Photo.</p>
+    </div>
+  </section>
+
+  @if (Model.Count == 0)
+  {
+    <div class="card" style="padding: 3.5rem 2rem; text-align: center; max-width: 650px; margin: 2rem auto; background: #FFF; border: 1px solid #E2DACB; border-radius: 8px;">
+      <div style="font-size: 3rem; margin-bottom: 0.75rem;">📷</div>
+      <h3 style="color: #4A3525; margin-bottom: 0.5rem;">No Galleries Uploaded Yet</h3>
+      <p style="color: #666; font-size: 0.95rem; line-height: 1.6;">
+        Once your photography session has taken place and your pictures are professionally edited, Aysha will upload your gallery right here for you to view and download!
+      </p>
+    </div>
+  }
+  else
+  {
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.75rem;">
+    @foreach (var card in Model)
+    {
+      var g = card.Gallery;
+      <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+        <div>
+          <div style="height: 240px; background-color: #E6E1D8; overflow: hidden; position: relative;">
+            @if (card.CoverUrl is not null)
+            {
+              <img src="@card.CoverUrl" alt="@g.Title" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" />
+            }
+            else
+            {
+              <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #7A6B5D; font-weight: 600;">
+                No photos in album yet
+              </div>
+            }
+            <span class="badge" style="position: absolute; top: 12px; right: 12px; background: rgba(26,26,26,0.75); color: #FFF; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
+              📁 @g.PhotoCount Photos
+            </span>
+          </div>
+
+          <div style="padding: 1.5rem;">
+            <span style="font-size: 0.8rem; color: #7A6B5D; font-weight: 700; text-transform: uppercase;">
+              📅 @Format.Date(g.EventDate)
+            </span>
+            <h3 style="font-size: 1.35rem; margin: 0.35rem 0 0.5rem 0; color: #1A1A1A;">@g.Title</h3>
+            <p style="color: #666; font-size: 0.88rem; margin: 0;">
+              @g.PhotoCount professionally edited and color-graded high-resolution photos.
+            </p>
+          </div>
+        </div>
+
+        <div style="padding: 1.25rem 1.5rem; background: #FAF7F2; border-top: 1px solid #ECE4D8; display: flex; gap: 0.75rem;">
+          @if (g.PhotoCount > 0)
+          {
+            <a asp-action="Album" asp-route-id="@g.Id" class="btn btn-outline btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
+              👁️ View Album
+            </a>
+            <a asp-action="DownloadAlbum" asp-route-id="@g.Id" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
+              ⬇️ Download (ZIP)
+            </a>
+          }
+        </div>
+      </div>
+    }
+    </div>
+  }
+</div>

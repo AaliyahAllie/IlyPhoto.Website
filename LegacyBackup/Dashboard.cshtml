@@ -1,0 +1,93 @@
+@model List<IlyPhotoWeb.Models.Booking>
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    int totalClients = ViewBag.TotalClients != null ? (int)ViewBag.TotalClients : 0;
+    int pendingCount = ViewBag.PendingCount != null ? (int)ViewBag.PendingCount : 0;
+    int confirmedCount = ViewBag.ConfirmedCount != null ? (int)ViewBag.ConfirmedCount : 0;
+    decimal totalRevenue = ViewBag.TotalRevenue != null ? (decimal)ViewBag.TotalRevenue : 0;
+}
+
+<div class="container">
+    <!-- Wireframe Header "Admin Side (Website)" -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 2.25rem; margin-bottom: 0.35rem;">Photographer Admin Dashboard</h1>
+            <p style="color: #666; margin: 0;">ILY Photo Business Statistics & Management</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a asp-action="Bookings" class="btn btn-primary">📅 Manage Bookings</a>
+            <a asp-action="Calendar" class="btn btn-secondary">📆 Master Calendar</a>
+            <a asp-action="Gallery" class="btn btn-black">🖼️ Upload Gallery Album</a>
+        </div>
+    </div>
+
+    <!-- Business Statistics Grid FR23 -->
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 3rem;">
+        <div class="card" style="background-color: #FAF7F2; border-color: #EAE3D2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; color: #666; font-weight: 600;">Total Clients</span>
+                <span>👥</span>
+            </div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: #1A1A1A;">@totalClients</div>
+            <p style="font-size: 0.78rem; color: #4A3525; margin: 0;">Active Clients</p>
+        </div>
+
+        <div class="card" style="background-color: #FEF3C7; border-color: #F59E0B;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; color: #92400E; font-weight: 600;">Pending Requests</span>
+                <span>⏳</span>
+            </div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: #92400E;">@pendingCount</div>
+            <p style="font-size: 0.78rem; color: #D97706; margin: 0;">Requires Action</p>
+        </div>
+
+        <div class="card" style="background-color: #E8F5E9; border-color: #2D6A4F;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; color: #2D6A4F; font-weight: 600;">Upcoming Shoots</span>
+                <span>✓</span>
+            </div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: #2D6A4F;">@confirmedCount</div>
+            <p style="font-size: 0.78rem; color: #2D6A4F; margin: 0;">Confirmed Sessions</p>
+        </div>
+
+        <div class="card" style="background-color: #1A1A1A; color: #FFF;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; color: #DDD; font-weight: 600;">Revenue Collected</span>
+                <span>💰</span>
+            </div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: #FFF;">R@(totalRevenue.ToString("N0"))</div>
+            <p style="font-size: 0.78rem; color: #AAA; margin: 0;">Paid Invoices</p>
+        </div>
+    </div>
+
+    <!-- Bookings Overview Table matching Wireframe 2 Admin/Bookings -->
+    <section class="card" style="padding: 2rem;">
+        <h3 style="margin-bottom: 1.25rem;">Recent Booking Appointments</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="background-color: #EAE3D2; text-align: left;">
+                    <th style="padding: 0.75rem 1rem;">ID</th>
+                    <th style="padding: 0.75rem 1rem;">Client</th>
+                    <th style="padding: 0.75rem 1rem;">Service</th>
+                    <th style="padding: 0.75rem 1rem;">Date & Time</th>
+                    <th style="padding: 0.75rem 1rem;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in Model)
+                {
+                    <tr style="border-bottom: 1px solid #E2DACB;">
+                        <td style="padding: 0.75rem 1rem; font-weight: 700;">@b.Id</td>
+                        <td style="padding: 0.75rem 1rem;">
+                            <strong>@b.ClientName</strong><br />
+                            <span style="font-size: 0.78rem; color: #666;">@b.ClientEmail</span>
+                        </td>
+                        <td style="padding: 0.75rem 1rem;">@b.ServiceName</td>
+                        <td style="padding: 0.75rem 1rem;">@b.EventDate at @b.EventTime</td>
+                        <td style="padding: 0.75rem 1rem;"><span class="badge badge-@(b.Status.ToLower())">@b.Status</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+</div>

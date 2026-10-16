@@ -1,0 +1,74 @@
+@model List<Booking>
+@{ 
+    ViewData["Title"] = "Photographer Master Calendar"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">SCHEDULE & TIMELINE</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Master Availability Calendar</h1>
+      <p style="color: #666; margin: 0;">Full-year calendar overview of all scheduled bookings and blocked dates.</p>
+    </div>
+    <a asp-action="Bookings" class="btn btn-outline" style="text-decoration: none;">← Back to Bookings</a>
+  </section>
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
+    <div class="calendar-toolbar">
+      <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(-1)">← Prev Month</button>
+      <h2 id="calendarTitle" style="margin: 0; font-size: 1.35rem; color: #4A3525;"></h2>
+      <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(1)">Next Month →</button>
+    </div>
+
+    <div id="calendar" class="calendar admin-calendar"></div>
+
+    <div class="legend" style="margin-top: 1.5rem;">
+      <span><i class="dot available"></i>Available</span>
+      <span><i class="dot busy"></i>Confirmed Booking</span>
+      <span><i class="dot blocked"></i>Blocked Day</span>
+    </div>
+  </div>
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <h3 style="margin-top: 0; color: #4A3525;">All Confirmed Appointments</h3>
+    <div class="table-wrap">
+      <table class="table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+            <th style="padding: 10px;">Date</th>
+            <th style="padding: 10px;">Time</th>
+            <th style="padding: 10px;">Package</th>
+            <th style="padding: 10px;">Client</th>
+            <th style="padding: 10px;">Location</th>
+            <th style="padding: 10px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in Model.Where(x => x.Status == BookingStatus.Confirmed).OrderBy(x => x.Date))
+        {
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 10px; font-weight: 700;">@Format.Date(b.Date)</td>
+            <td style="padding: 10px;">@b.StartTime – @b.EndTime</td>
+            <td style="padding: 10px; font-weight: 600;">@b.EventType</td>
+            <td style="padding: 10px;">@b.ClientName (@b.ClientId)</td>
+            <td style="padding: 10px;">@b.Location</td>
+            <td style="padding: 10px;"><span class="status confirmed">Confirmed</span></td>
+          </tr>
+        }
+        @if (!Model.Any(x => x.Status == BookingStatus.Confirmed))
+        {
+          <tr><td colspan="6" style="padding: 15px; color: #777;">No confirmed bookings on the schedule yet.</td></tr>
+        }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initBookingCalendar(true);
+  });
+</script>
+}

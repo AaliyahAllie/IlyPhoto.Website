@@ -1,0 +1,80 @@
+@model List<InvoiceSheetModel>
+@{ 
+    ViewData["Title"] = "My Invoices"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT BILLING</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Your Invoices</h1>
+      <p style="color: #666; margin: 0;">View detailed tax invoices and EFT payment instructions for your photography sessions.</p>
+    </div>
+  </section>
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
+    @if (Model.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">You have no invoices issued yet. Invoices are generated once a booking is confirmed by Aysha.</p>
+    }
+    else
+    {
+      <div class="table-wrap">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+              <th style="padding: 12px;">Invoice No</th>
+              <th style="padding: 12px;">Service / Booking</th>
+              <th style="padding: 12px;">Issue Date</th>
+              <th style="padding: 12px;">Due Date</th>
+              <th style="padding: 12px;">Total Amount</th>
+              <th style="padding: 12px;">Status</th>
+              <th style="padding: 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach (var row in Model)
+          {
+            var i = row.Invoice;
+            <tr style="border-bottom: 1px solid #ECE4D8;">
+              <td style="padding: 12px; font-weight: 700; color: #4A3525;">@i.InvoiceNo</td>
+              <td style="padding: 12px;">
+                @(string.IsNullOrEmpty(i.BookingLabel) ? i.Service : i.BookingLabel)
+              </td>
+              <td style="padding: 12px;">@Format.Date(i.IssueDate)</td>
+              <td style="padding: 12px;">@Format.Date(i.DueDate)</td>
+              <td style="padding: 12px; font-weight: 800; color: #1A1A1A;">@Format.Rand(i.Total)</td>
+              <td style="padding: 12px;">
+                <span class="status @Format.StatusClass(i.Status)">@i.Status</span>
+              </td>
+              <td style="padding: 12px; text-align: right;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('invoice-@i.Id').showModal()">
+                  📄 View Invoice & Bank Details
+                </button>
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- EFT Banking Help Notice -->
+  <div class="card" style="background: #FAF7F2; border-left: 4px solid #4A3525; border-radius: 4px; padding: 1.5rem;">
+    <h3 style="margin-top: 0; color: #4A3525; font-size: 1.15rem;">🏦 How to Pay Your Invoice (EFT)</h3>
+    <p style="color: #555; font-size: 0.9rem; margin-bottom: 0.75rem;">
+      ILY Photo accepts direct Electronic Funds Transfers (EFT) from all major South African banks (Standard Bank, FNB, Capitec, Nedbank, ABSA).
+    </p>
+    <ul style="font-size: 0.88rem; color: #555; line-height: 1.7; margin-bottom: 0;">
+      <li>Click <strong>"View Invoice & Bank Details"</strong> on your invoice above to see our banking details.</li>
+      <li>Use your unique <strong>Invoice Number</strong> (e.g. INV-00001) as the beneficiary payment reference.</li>
+      <li>Email your Proof of Payment (POP) to <a href="mailto:info@ilyphoto.co.za" style="color: #4A3525; font-weight: 700;">info@ilyphoto.co.za</a>.</li>
+    </ul>
+  </div>
+</div>
+
+@foreach (var row in Model) 
+{ 
+  <partial name="_InvoiceSheet" model="row" /> 
+}

@@ -1,0 +1,140 @@
+@model AdminGalleriesViewModel
+@{ 
+    ViewData["Title"] = "Gallery Management"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLOUD ALBUM MANAGEMENT</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Client Gallery Uploads</h1>
+      <p style="color: #666; margin: 0;">Upload high-resolution event albums into cloud storage. Clients can view and download their images directly.</p>
+    </div>
+  </section>
+
+  <!-- Upload New Album Form -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2.5rem;">
+    <h2 style="font-size: 1.35rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Upload New Photo Album</h2>
+
+    <form method="post" enctype="multipart/form-data" asp-controller="Admin" asp-action="UploadGallery" id="uploadForm">
+      <div class="two" style="margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Client *</label>
+          <select name="clientId" id="galClient" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+            <option value="">Select a registered client…</option>
+            @foreach (var c in Model.Clients) 
+            { 
+              <option value="@c.ClientId">@c.ClientId · @c.FullName (@c.Email)</option> 
+            }
+          </select>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Confirmed Booking (Optional)</label>
+          <select name="bookingId" id="galBooking" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+            <option value="">— Standalone Album —</option>
+            @foreach (var b in Model.Bookings) 
+            { 
+              <option value="@b.Id" data-client="@b.ClientId" data-title="@b.EventType @b.EventDate.Year">@b.ClientId · @b.Label</option> 
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Album Title *</label>
+        <input name="title" id="galTitle" maxlength="150" required placeholder="e.g. Allie Family Wedding / Matric Ball 2026" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+
+      <!-- Multiple Image File Explorer Box per user request -->
+      <div class="upload-box" style="margin-bottom: 1.25rem;">
+        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📁</div>
+        <strong style="color: #4A3525; font-size: 1.05rem;">Select Gallery Images (Multi-Select)</strong>
+        <p style="color: #666; font-size: 0.85rem; margin: 0.35rem 0 0.75rem 0;">
+          Click the button below to open File Explorer and choose multiple photos (JPG, PNG, WEBP, GIF up to 50 MB each).
+        </p>
+        <input type="file" name="photos" id="photoFiles" multiple accept="image/jpeg,image/png,image/webp,image/gif" required class="btn btn-outline btn-sm" style="background: #FFF; padding: 0.5rem 1rem;"/>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #333; cursor: pointer;">
+          <input type="checkbox" name="allowPortfolio" value="true" style="width: 18px; height: 18px; accent-color: #4A3525;"/>
+          <span>Allow selected photos to appear on the <strong>Public Portfolio</strong> showcase (with client permission)</span>
+        </label>
+      </div>
+
+      <button class="btn btn-primary" type="submit" id="uploadBtn" style="padding: 0.85rem 1.75rem; font-weight: 700; cursor: pointer;">
+        🚀 Upload Full Album
+      </button>
+      <p id="uploadNote" style="display: none; color: #4A3525; font-weight: bold; margin-top: 1rem;">
+        ⏳ Uploading photos to cloud storage… please keep this window open until complete.
+      </p>
+    </form>
+  </div>
+
+  <!-- Existing Albums -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <h2 style="font-size: 1.4rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Existing Client Albums</h2>
+    @if (Model.Galleries.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">No galleries uploaded yet.</p>
+    }
+    else
+    {
+      <div class="table-wrap">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+              <th style="padding: 12px;">Album Title</th>
+              <th style="padding: 12px;">Client ID</th>
+              <th style="padding: 12px;">Shoot Date</th>
+              <th style="padding: 12px;">Photo Count</th>
+              <th style="padding: 12px;">Public Portfolio?</th>
+              <th style="padding: 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach (var g in Model.Galleries)
+          {
+            <tr style="border-bottom: 1px solid #ECE4D8;">
+              <td style="padding: 12px; font-weight: 600;">@g.Title</td>
+              <td style="padding: 12px;">@g.ClientId</td>
+              <td style="padding: 12px;">@Format.Date(g.EventDate)</td>
+              <td style="padding: 12px; font-weight: 700; color: #4A3525;">@g.PhotoCount photos</td>
+              <td style="padding: 12px;">
+                @if (g.PortfolioApproved)
+                {
+                  <span class="badge" style="background: #E8F5E9; color: #2D6A4F; font-size: 0.75rem;">✓ Featured in Portfolio</span>
+                }
+                else
+                {
+                  <span style="color: #888; font-size: 0.8rem;">Private only</span>
+                }
+              </td>
+              <td style="padding: 12px; text-align: right;">
+                <form method="post" asp-controller="Admin" asp-action="DeleteGallery" onsubmit="return confirm('Delete this album and all its photos permanently?');" style="display: inline; margin: 0;">
+                  <input type="hidden" name="id" value="@g.Id"/>
+                  <button class="text-btn" type="submit" style="color: #C0392B;">Delete Album</button>
+                </form>
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  initClientBookingPicker('galClient', 'galBooking', function(opt) {
+    const t = document.getElementById('galTitle');
+    if (opt && opt.dataset.title && !t.value) t.value = opt.dataset.title;
+  });
+  document.getElementById('uploadForm').addEventListener('submit', function() {
+    document.getElementById('uploadBtn').disabled = true;
+    document.getElementById('uploadNote').style.display = 'block';
+  });
+</script>
+}

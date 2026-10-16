@@ -1,0 +1,54 @@
+@model List<DiagnosticCheck>
+@{ 
+    ViewData["Title"] = "System Diagnostics"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <div style="margin-bottom: 2rem;">
+    <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">SYSTEM HEALTH CHECK</p>
+    <h1 style="font-size: 2.2rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Firebase & Infrastructure Diagnostics</h1>
+    <p style="color: #666; max-width: 750px;">Live integration verification testing Cloud Firestore, Firebase Authentication, Admin SDK credentials, Web API Key, and local disk photo storage.</p>
+  </div>
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <table class="table" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+          <th style="padding: 14px 18px; font-weight: 700; color: #4A3525;">Component</th>
+          <th style="padding: 14px 18px; font-weight: 700; color: #4A3525; width: 140px;">Status</th>
+          <th style="padding: 14px 18px; font-weight: 700; color: #4A3525;">Live Diagnostic Details</th>
+        </tr>
+      </thead>
+      <tbody>
+      @foreach (var c in Model)
+      {
+        <tr style="border-bottom: 1px solid #ECE4D8;">
+          <td style="padding: 14px 18px; font-weight: 600; color: #2C2C2C;">@c.Name</td>
+          <td style="padding: 14px 18px;">
+            @if (c.Status == "ok")
+            {
+              <span class="badge" style="background-color: #E8F8F5; color: #117A65; border: 1px solid #A2D9CE; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✓ PASS</span>
+            }
+            else if (c.Status == "warn")
+            {
+              <span class="badge" style="background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">⚠ NOTICE</span>
+            }
+            else
+            {
+              <span class="badge" style="background-color: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✕ FAIL</span>
+            }
+          </td>
+          <td style="padding: 14px 18px; font-size: 0.9rem; color: #444; line-height: 1.5;">@c.Detail</td>
+        </tr>
+      }
+      </tbody>
+    </table>
+  </div>
+
+  @if (Model.All(c => c.Status == "ok"))
+  {
+    <div class="notice flash" style="margin-top: 2rem; background-color: #E8F8F5; border-left: 4px solid #117A65; color: #117A65; padding: 1rem; border-radius: 4px;">
+      <strong>All systems operational!</strong> The live Firebase connection is fully functional. Both the client and admin portals are ready for bookings, photo uploads, and invoicing.
+    </div>
+  }
+</div>

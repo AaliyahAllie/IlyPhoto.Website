@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'/>
+    <style>
+        body { font-family: 'DM Sans', Arial, sans-serif; background: #FAF7F2; color: #2C2C2C; padding: 20px; }
+        .card { max-width: 600px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 30px; }
+        .header { border-bottom: 2px solid #4A3525; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo { font-size: 24px; font-weight: bold; color: #4A3525; letter-spacing: 1px; }
+        .tagline { font-size: 13px; color: #7A6B5D; }
+        .invoice-title { font-size: 20px; font-weight: 700; color: #1A1A1A; margin-top: 15px; }
+        .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .details-table th, .details-table td { padding: 10px; border-bottom: 1px solid #ECE4D8; text-align: left; font-size: 14px; }
+        .details-table th { background: #FAF7F2; color: #4A3525; }
+        .total-row { font-weight: bold; font-size: 16px; background: #FAF7F2; }
+        .eft-box { background: #F8F5EE; border-left: 4px solid #4A3525; padding: 15px; border-radius: 4px; margin-top: 25px; }
+        .eft-title { font-weight: bold; color: #4A3525; margin-bottom: 8px; }
+        .footer { font-size: 12px; color: #888; text-align: center; margin-top: 30px; border-top: 1px solid #ECE4D8; padding-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class='card'>
+        <div class='header'>
+            <div class='logo'>ILY PHOTO</div>
+            <div class='tagline'>Capture forever. • Cape Town, South Africa</div>
+        </div>
+
+        <div class='invoice-title'>Tax Invoice: INV-00001</div>
+        <p>Dear <strong>Aaliyah Allie</strong>,</p>
+        <p>Thank you for choosing ILY Photo. Your photography invoice is ready. Please find the session details and EFT banking instructions below:</p>
+
+        <table class='details-table'>
+            <tr>
+                <th>Invoice Number</th>
+                <td>INV-00001</td>
+            </tr>
+            <tr>
+                <th>Client ID</th>
+                <td>CL-1001</td>
+            </tr>
+            <tr>
+                <th>Issue Date</th>
+                <td>16 Oct 2026</td>
+            </tr>
+            <tr>
+                <th>Due Date</th>
+                <td>30 Oct 2026</td>
+            </tr>
+            <tr>
+                <th>Service / Package</th>
+                <td>Wedding</td>
+            </tr>
+            <tr>
+                <th>Quantity</th>
+                <td>1</td>
+            </tr>
+            <tr>
+                <th>Rate</th>
+                <td>R600</td>
+            </tr>
+            <tr class='total-row'>
+                <td>Total Due (ZAR)</td>
+                <td>R600</td>
+            </tr>
+        </table>
+
+        <div class='eft-box'>
+            <div class='eft-title'>🏦 Direct EFT Payment Instructions:</div>
+            <pre style='font-family: inherit; font-size: 13px; margin: 0; line-height: 1.6; white-space: pre-wrap;'>Bank: Standard Bank
+Account Holder: Ily Photo Studio (Aysha Allie)
+Account Number: 10182736450
+Account Type: Cheque / Current
+Branch Code: 051001
+Reference: Use your Invoice Number (e.g. INV-00001)
+Please email proof of payment to info@ilyphoto.co.za</pre>
+            <p style='margin: 8px 0 0 0; font-size: 12px; color: #555;'>
+                <strong>Important:</strong> Please use <strong>INV-00001</strong> as the payment reference when initiating your bank transfer. Once payment is completed, kindly email your proof of payment (POP) to <a href='mailto:info@ilyphoto.co.za'>info@ilyphoto.co.za</a>.
+            </p>
+        </div>
+
+        <div class='footer'>
+            &copy; 2026 ILY Photo Studio. All rights reserved.<br/>
+            POPIA Compliant • Cape Town, South Africa
+        </div>
+    </div>
+</body>
+</html>

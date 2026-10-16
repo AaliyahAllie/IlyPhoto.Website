@@ -1,0 +1,44 @@
+@model List<string>
+@{
+    ViewData["Title"] = "Portfolio Showcase";
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+    <div style="text-align: center; margin-bottom: 2.5rem;">
+        <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">OUR PREVIOUS WORK</p>
+        <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Portfolio Gallery</h1>
+        <p style="color: #666; max-width: 600px; margin: 0 auto;">A curated selection of event captures, portraits, matric balls, and weddings by ILY Photo.</p>
+    </div>
+
+    @if (Model != null && Model.Count > 0)
+    {
+        <div class="portfolio-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+            @for (int i = 0; i < Model.Count; i++)
+            {
+                var url = Model[i];
+                <div class="portfolio-item card" style="padding: 0; overflow: hidden; border-radius: 8px; cursor: pointer; position: relative; height: 300px;"
+                     onclick="openLightbox('@url', 'ILY Photo — Capture @(i + 1)')">
+                    <img src="@url" alt="ILY Photo Portfolio @(i + 1)" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;"
+                         onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'"/>
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.6)); padding: 1rem; color: #FFF; font-size: 0.85rem; font-weight: 600;">
+                        🔍 Click to view full image
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Clean Empty State per user request (no placeholders) -->
+        <div class="card" style="padding: 4rem 2rem; text-align: center; max-width: 600px; margin: 2rem auto; background: #FFF; border: 1px solid #E2DACB; border-radius: 8px;">
+            <div style="font-size: 3.5rem; margin-bottom: 1rem;">📷</div>
+            <h3 style="margin-bottom: 0.5rem; color: #4A3525; font-size: 1.4rem;">Portfolio Gallery</h3>
+            <p style="color: #666; font-size: 0.95rem; line-height: 1.6;">
+                Our gallery is currently being curated with fresh captures from recent shoots. When the photographer uploads albums with public portfolio permission, they will appear here!
+            </p>
+            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Client/Bookings" class="btn btn-primary" style="margin-top: 1.25rem; display: inline-block; padding: 0.75rem 1.5rem; text-decoration: none; font-weight: 700;">
+                📅 Book A Photography Session
+            </a>
+        </div>
+    }
+</div>

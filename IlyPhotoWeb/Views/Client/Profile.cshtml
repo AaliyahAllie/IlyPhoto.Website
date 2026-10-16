@@ -1,0 +1,44 @@
+@model UserProfile
+@{ 
+    ViewData["Title"] = "My Profile"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT PROFILE</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Account Settings</h1>
+      <p style="color: #666; margin: 0;">Update your personal contact details for photography invoices and booking confirmations.</p>
+    </div>
+  </section>
+
+  <div style="max-width: 550px; margin: 0 auto;">
+    <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+      <form method="post" asp-controller="Client" asp-action="Profile">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Client ID</label>
+          <input value="@Model.ClientId" disabled class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; background: #FAF7F2; font-weight: bold;"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Full Name</label>
+          <input name="fullName" value="@Model.FullName" required maxlength="100" class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Email Address</label>
+          <input value="@Model.Email" disabled class="form-control" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; background: #FAF7F2;"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.75rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Phone / WhatsApp</label>
+          <input name="phone" type="tel" value="@Model.Phone" maxlength="30" class="form-control" placeholder="+27 82 000 0000" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit" style="width: 100%; padding: 0.85rem; font-weight: 700; cursor: pointer;">
+          💾 Save Profile Changes
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

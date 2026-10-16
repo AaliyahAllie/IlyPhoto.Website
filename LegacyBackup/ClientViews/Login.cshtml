@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Client Login";
+    string? error = ViewBag.Error as string;
+}
+
+<div class="container" style="max-width: 460px;">
+    <!-- Wireframe Header "Client / Login" -->
+    <div style="text-align: center; margin-bottom: 2.5rem;">
+        <h1 style="font-size: 2.25rem; margin-bottom: 0.5rem;">Login</h1>
+        <p style="color: #666;">Welcome back</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div style="padding: 0.85rem; background-color: #FEE2E2; border: 1px solid #991B1B; border-radius: 6px; color: #991B1B; font-size: 0.88rem; margin-bottom: 1.25rem;">
+            ⚠️ @error
+        </div>
+    }
+
+    <form asp-action="Login" method="post" class="card" style="padding: 2.5rem;">
+        <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" class="form-control" placeholder="name@example.com" required />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required />
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; font-size: 0.85rem;">
+            <a asp-action="Register" style="color: #4A3525; font-weight: 600;">Create new account</a>
+            <a asp-action="ResetPassword" style="color: #666;">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn btn-black btn-full">
+            🔑 Sign In
+        </button>
+    </form>
+</div>

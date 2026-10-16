@@ -1,0 +1,96 @@
+@{
+    ViewData["Title"] = "Home - Capture Forever";
+}
+
+<!-- Hero Section -->
+<section style="background: linear-gradient(180deg, #FDFBF7 0%, #FAF7F2 100%); padding: 5rem 1rem 4rem; border-bottom: 1px solid #E2DACB;">
+    <div class="container" style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 4rem; align-items: center;">
+        <div>
+            <p style="font-size: 0.8rem; letter-spacing: 0.15em; font-weight: 700; color: #4A3525; text-transform: uppercase; margin: 0 0 0.75rem 0;">
+                CAPE TOWN PHOTOGRAPHY STUDIO
+            </p>
+            <h1 style="font-size: clamp(2.6rem, 5vw, 4.2rem); font-family: var(--font-serif); font-weight: 700; line-height: 1.1; color: #1A1A1A; margin: 0 0 1.25rem 0;">
+                Moments worth keeping <span style="color: #4A3525; font-style: italic;">forever.</span>
+            </h1>
+            <p style="font-size: 1.1rem; color: #555; line-height: 1.7; margin: 0 0 2rem 0; max-width: 580px;">
+                Specializing in matric balls, weddings, corporate functions, and private celebrations across the Western Cape. Experience timeless elegance through a personalized photographic lens.
+            </p>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a asp-action="Pricing" class="btn btn-primary" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;">
+                    View Packages & Rates
+                </a>
+                <a asp-action="Portfolio" class="btn btn-outline" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;">
+                    Explore Portfolio →
+                </a>
+            </div>
+        </div>
+
+        <div style="text-align: center; background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 12px; padding: 3rem 2rem; box-shadow: 0 10px 30px rgba(74, 53, 37, 0.05);">
+            <img src="~/images/logo.png" alt="ILY PHOTO" style="max-width: 280px; width: 100%; object-fit: contain; margin-bottom: 1.5rem;" />
+            <div style="font-family: var(--font-serif); font-size: 1.3rem; color: #4A3525; font-style: italic;">
+                Capture forever.
+            </div>
+            <p style="font-size: 0.85rem; color: #777; margin-top: 0.5rem;">
+                Cape Town, South Africa
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- What We Photograph -->
+<section style="padding: 4.5rem 1rem;">
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 3rem;">
+            <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">OUR SPECIALIZATIONS</p>
+            <h2 style="font-size: 2.2rem; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Stories, Celebrations & Milestones</h2>
+            <p style="color: #666; max-width: 550px; margin: 0 auto;">Dedicated packages crafted to deliver stunning imagery for life's biggest occasions.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+            <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎓</div>
+                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Matric Balls</h3>
+                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                    Arrivals, portraits, and celebration photography. Complete 2-3 hour coverage starting at R800.
+                </p>
+            </div>
+
+            <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">💍</div>
+                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Weddings</h3>
+                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                    Capturing intimate vows, ceremony, and reception. Starting from 4 hours at R1,500 (+R200/hr).
+                </p>
+            </div>
+
+            <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🏛️</div>
+                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Corporate Events</h3>
+                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                    Professional branding, launches, galas, and conferences. Starting from 4 hours at R2,000.
+                </p>
+            </div>
+
+            <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎂</div>
+                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Custom Celebrations</h3>
+                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                    Birthdays, anniversaries, and family portraits. Flexible coverage at R300 per hour.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action Banner -->
+<section style="background: #4A3525; color: #FFFFFF; padding: 4rem 1rem; text-align: center;">
+    <div class="container" style="max-width: 650px;">
+        <h2 style="color: #FFFFFF; font-size: 2.2rem; margin-bottom: 0.75rem;">Ready to Secure Your Date?</h2>
+        <p style="color: #EAE3D2; font-size: 1.05rem; margin-bottom: 2rem; line-height: 1.6;">
+            Create your client account to check live calendar availability, submit booking requests, and access your private cloud photo gallery.
+        </p>
+        <a asp-controller="Account" asp-action="Register" class="btn btn-secondary" style="padding: 0.85rem 2rem; font-weight: 700; text-decoration: none; font-size: 1.05rem;">
+            Create Free Client Account
+        </a>
+    </div>
+</section>

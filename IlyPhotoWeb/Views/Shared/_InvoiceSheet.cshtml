@@ -1,0 +1,79 @@
+@model InvoiceSheetModel
+@inject Microsoft.Extensions.Options.IOptions<IlyPhotoWeb.Services.BusinessOptions> Biz
+@{
+    var inv = Model.Invoice;
+    var id = "invoice-" + inv.Id;
+}
+
+<dialog id="@id" class="invoice-modal">
+  <div class="invoice-sheet">
+    <div class="invoice-top">
+      <img src="~/images/logo.png" alt="ILY PHOTO" style="height: 55px; object-fit: contain;"/>
+      <h1>TAX INVOICE</h1>
+    </div>
+
+    <div class="invoice-meta">
+      <div>
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: #7A6B5D; font-weight: 700;">Invoice To:</span><br/>
+        <strong style="font-size: 1.1rem; color: #1A1A1A;">@Model.ClientName</strong>
+        <p style="margin: 0.25rem 0 0 0; color: #555; font-size: 0.88rem;">
+            @Model.ClientEmail<br/>
+            @Model.ClientPhone<br/>
+            <strong>Client ID:</strong> @inv.ClientId
+        </p>
+      </div>
+      <div style="text-align: right; font-size: 0.9rem; line-height: 1.6;">
+        <b>Invoice No:</b> <span style="color: #4A3525; font-weight: 700;">@inv.InvoiceNo</span><br/>
+        <b>Issue Date:</b> @Format.Date(inv.IssueDate)<br/>
+        <b>Due Date:</b> @Format.Date(inv.DueDate)<br/>
+        <b>Payment Status:</b> <span class="badge @Format.StatusClass(inv.Status)">@inv.Status</span>
+      </div>
+    </div>
+
+    <table class="table" style="width: 100%; margin: 1.5rem 0; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB;">
+          <th style="padding: 10px; text-align: left;">SERVICE DESCRIPTION</th>
+          <th style="padding: 10px; text-align: center;">QTY</th>
+          <th style="padding: 10px; text-align: right;">UNIT PRICE</th>
+          <th style="padding: 10px; text-align: right;">TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #E2DACB;">
+          <td style="padding: 10px;">
+            <strong>@inv.Service</strong>
+            @if (!string.IsNullOrEmpty(inv.BookingLabel))
+            {
+              <br/><small style="color: #7A6B5D;">@inv.BookingLabel</small>
+            }
+          </td>
+          <td style="padding: 10px; text-align: center;">@inv.Quantity</td>
+          <td style="padding: 10px; text-align: right;">@Format.Rand(inv.Price)</td>
+          <td style="padding: 10px; text-align: right; font-weight: 700;">@Format.Rand(inv.Total)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals" style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; margin: 1rem 0;">
+      <span>Sub-total: <b>@Format.Rand(inv.Total)</b></span>
+      <span>VAT (0% - Exempt/Small Enterprise): <b>R0</b></span>
+      <span class="grand" style="font-size: 1.25rem; font-weight: 800; color: #4A3525; border-top: 2px solid #4A3525; padding-top: 0.5rem; margin-top: 0.5rem;">
+        TOTAL DUE: <b>@Format.Rand(inv.Total)</b>
+      </span>
+    </div>
+
+    <div class="invoice-footer" style="background-color: #FAF7F2; border-left: 4px solid #4A3525; padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
+      <b style="color: #4A3525; font-size: 0.95rem;">🏦 Direct EFT Payment Instructions:</b>
+      <p style="margin: 0.5rem 0 0 0; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap;">@Biz.Value.BankDetails.Replace("your invoice number", inv.InvoiceNo)</p>
+      <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #777;">
+        * Please email proof of payment (POP) to <strong>info@ilyphoto.co.za</strong> referencing <strong>@inv.InvoiceNo</strong>.
+      </p>
+    </div>
+  </div>
+
+  <div class="modal-actions" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+    <button type="button" onclick="document.getElementById('@id').close()" class="btn btn-outline">Close</button>
+    <button type="button" onclick="window.print()" class="btn btn-primary">🖨️ Print / Save as PDF</button>
+  </div>
+</dialog>

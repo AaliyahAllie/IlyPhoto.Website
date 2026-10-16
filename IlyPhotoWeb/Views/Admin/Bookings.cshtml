@@ -1,0 +1,180 @@
+@model AdminBookingsViewModel
+@{ 
+    ViewData["Title"] = "Manage Bookings & Availability"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">ADMIN CALENDAR</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Bookings & Calendar</h1>
+      <p style="color: #666; margin: 0;">Click an open day on the calendar to block it, or a blocked day to make it available again.</p>
+    </div>
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('blockDialog').showModal()" style="padding: 0.75rem 1.25rem;">
+      🚫 Block A Date
+    </button>
+  </section>
+
+  <section class="booking-layout">
+    <!-- Photographer Master Multi-Month Calendar -->
+    <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+      <div class="calendar-toolbar">
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(-1)">← Prev Month</button>
+        <h2 id="calendarTitle" style="margin: 0; font-size: 1.25rem; color: #4A3525;"></h2>
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(1)">Next Month →</button>
+      </div>
+
+      <div id="calendar" class="calendar admin-calendar"></div>
+
+      <div class="legend" style="margin-top: 1.25rem;">
+        <span><i class="dot available"></i>Available</span>
+        <span><i class="dot busy"></i>Confirmed Booking</span>
+        <span><i class="dot blocked"></i>Blocked Date</span>
+      </div>
+      <p style="font-size: 0.8rem; color: #777; margin-top: 0.75rem;">💡 Tip: Click any day to quick-block or unblock it.</p>
+    </div>
+
+    <!-- Booking Requests -->
+    <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+      <h2 style="font-size: 1.3rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Pending Requests (@Model.Pending.Count)</h2>
+      @if (Model.Pending.Count == 0)
+      {
+        <p style="color: #666;">No pending booking requests at this time.</p>
+      }
+      @foreach (var b in Model.Pending)
+      {
+        <div class="request-card" style="border-top: 1px solid #ECE4D8; padding: 1rem 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.15rem; color: #1A1A1A;">@b.EventType</h3>
+            <span class="status pending">Pending Approval</span>
+          </div>
+          <p style="margin: 0.25rem 0; font-size: 0.88rem; color: #444;"><strong>Client:</strong> @b.ClientName (@b.ClientId)</p>
+          <p style="margin: 0.25rem 0; font-size: 0.88rem; color: #444;"><strong>Date & Time:</strong> @Format.Date(b.Date) • @b.StartTime – @b.EndTime (@b.Hours h)</p>
+          <p style="margin: 0.25rem 0; font-size: 0.88rem; color: #444;"><strong>Location:</strong> @b.Location</p>
+          <p style="margin: 0.25rem 0; font-size: 0.88rem; color: #4A3525; font-weight: 700;"><strong>Estimated Total:</strong> @Format.Rand(b.EstimatedTotal)</p>
+          @if (!string.IsNullOrWhiteSpace(b.Notes))
+          {
+            <p style="margin: 0.35rem 0; font-size: 0.82rem; color: #777; font-style: italic;">Notes: "@b.Notes"</p>
+          }
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.85rem;">
+            <form method="post" asp-controller="Admin" asp-action="ApproveBooking" style="margin: 0;">
+              <input type="hidden" name="id" value="@b.Id" />
+              <input type="hidden" name="returnTo" value="Bookings" />
+              <button class="btn btn-primary btn-sm" type="submit" style="cursor: pointer;">✓ Approve</button>
+            </form>
+            <form method="post" asp-controller="Admin" asp-action="DenyBooking" style="margin: 0;">
+              <input type="hidden" name="id" value="@b.Id" />
+              <input type="hidden" name="returnTo" value="Bookings" />
+              <button class="btn btn-outline btn-sm" type="submit" style="color: #C0392B; cursor: pointer;">✕ Deny</button>
+            </form>
+            <button type="button" class="btn btn-secondary btn-sm" data-id="@b.Id" data-date="@b.Date" data-start="@b.StartTime" data-end="@b.EndTime" onclick="openReschedule(this)" style="cursor: pointer;">
+              🔄 Reschedule
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Confirmed Events -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <h2 style="font-size: 1.4rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Upcoming Confirmed Events</h2>
+    @if (Model.Upcoming.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">No confirmed shoots scheduled yet.</p>
+    }
+    else
+    {
+      <div class="table-wrap">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+              <th style="padding: 12px;">Event Date</th>
+              <th style="padding: 12px;">Time</th>
+              <th style="padding: 12px;">Package</th>
+              <th style="padding: 12px;">Client</th>
+              <th style="padding: 12px;">Location</th>
+              <th style="padding: 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach (var b in Model.Upcoming)
+          {
+            <tr style="border-bottom: 1px solid #ECE4D8;">
+              <td style="padding: 12px; font-weight: 700;">@Format.Date(b.Date)</td>
+              <td style="padding: 12px;">@b.StartTime – @b.EndTime</td>
+              <td style="padding: 12px; font-weight: 600;">@b.EventType</td>
+              <td style="padding: 12px;">@b.ClientName <small style="color: #777;">(@b.ClientId)</small></td>
+              <td style="padding: 12px;">@b.Location</td>
+              <td style="padding: 12px; text-align: right;">
+                <button type="button" class="btn btn-outline btn-sm" data-id="@b.Id" data-date="@b.Date" data-start="@b.StartTime" data-end="@b.EndTime" onclick="openReschedule(this)">
+                  Reschedule
+                </button>
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Block Date Modal Dialog -->
+<dialog id="blockDialog" style="border: 0; border-radius: 8px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <form method="post" asp-controller="Admin" asp-action="BlockDate" class="dialog-card">
+    <h2 style="color: #4A3525; margin-top: 0;">Block Date Availability</h2>
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Date to Block</label>
+      <input type="date" name="date" id="blockDate" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+    </div>
+    <div class="form-group" style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Reason (Optional)</label>
+      <input name="reason" maxlength="200" placeholder="e.g. Leave, Maintenance, Studio Shoot" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button class="btn btn-outline" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-primary" type="submit">Save Blocked Date</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Reschedule Modal Dialog -->
+<dialog id="rescheduleDialog" style="border: 0; border-radius: 8px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <form method="post" asp-controller="Admin" asp-action="RescheduleBooking" class="dialog-card">
+    <h2 style="color: #4A3525; margin-top: 0;">Reschedule Booking</h2>
+    <input type="hidden" name="id" id="reId"/>
+    <input type="hidden" name="returnTo" value="Bookings"/>
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">New Date</label>
+      <input type="date" name="date" id="reDate" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+    </div>
+    <div class="two" style="margin-bottom: 1.5rem;">
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Start Time</label>
+        <input type="time" name="startTime" id="reStart" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">End Time</label>
+        <input type="time" name="endTime" id="reEnd" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button class="btn btn-outline" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-primary" type="submit">Confirm Reschedule</button>
+    </div>
+  </form>
+</dialog>
+
+<form id="unblockForm" method="post" asp-controller="Admin" asp-action="UnblockDate">
+  <input type="hidden" name="date" id="unblockDate"/>
+</form>
+
+@section Scripts {
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initBookingCalendar(true);
+  });
+</script>
+}

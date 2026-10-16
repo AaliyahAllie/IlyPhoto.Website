@@ -1,0 +1,39 @@
+@{ 
+    ViewData["Title"] = "About ILY Photo"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <div style="text-align: center; margin-bottom: 3rem;">
+    <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">BEHIND THE CAMERA</p>
+    <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">About ILY Photo</h1>
+    <p style="color: #666; max-width: 650px; margin: 0 auto;">Founded and operated by solo photographer Aysha Allie, based in Strandfontein, Cape Town.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; margin-bottom: 3rem;">
+    <div class="card" style="padding: 2rem; background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; text-align: center;">
+      <img src="~/images/logo.png" alt="ILY PHOTO" style="max-width: 260px; width: 100%; object-fit: contain; margin-bottom: 1.5rem;"/>
+      <div style="font-family: var(--font-serif); font-size: 1.4rem; color: #4A3525; margin-bottom: 0.5rem;">Aysha Allie</div>
+      <p style="color: #7A6B5D; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Owner & Principal Photographer</p>
+      <div style="display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;">
+        <span class="badge" style="background: #EAE3D2; color: #4A3525;">Cape Town Based</span>
+        <span class="badge" style="background: #EAE3D2; color: #4A3525;">Matric Balls</span>
+        <span class="badge" style="background: #EAE3D2; color: #4A3525;">Weddings</span>
+        <span class="badge" style="background: #EAE3D2; color: #4A3525;">Corporate</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="color: #4A3525; font-size: 1.8rem; margin-top: 0;">A Personal Journey In Every Frame</h2>
+      <p style="color: #444; font-size: 1rem; line-height: 1.8; margin-bottom: 1rem;">
+        ILY Photo is an independent Cape Town photography business dedicated to capturing genuine emotion, natural light, and heartfelt celebrations. Every client journey — from initial booking to the final gallery delivery — is handled personally with care and artistic precision.
+      </p>
+      <p style="color: #444; font-size: 1rem; line-height: 1.8; margin-bottom: 1.5rem;">
+        Through this secure web platform, clients can explore packages, request dates, view invoices with direct EFT payment details, and access private cloud-backed photo collections from anywhere in the world.
+      </p>
+      <div style="display: flex; gap: 1rem;">
+        <a asp-action="Pricing" class="btn btn-primary" style="text-decoration: none;">Explore Packages</a>
+        <a asp-action="Contact" class="btn btn-outline" style="text-decoration: none;">Get In Touch</a>
+      </div>
+    </div>
+  </div>
+</div>

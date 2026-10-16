@@ -1,0 +1,160 @@
+@model BookingPageViewModel
+@{ 
+    ViewData["Title"] = "Book Photography Session"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT BOOKING</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Request A Session</h1>
+      <p style="color: #666; margin: 0;">Check the photographer's real-time availability across all months and request your event booking.</p>
+    </div>
+  </section>
+
+  <section class="booking-layout">
+    <!-- Interactive Multi-Month Calendar -->
+    <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+      <div class="calendar-toolbar">
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(-1)">← Prev Month</button>
+        <h2 id="calendarTitle" style="margin: 0; font-size: 1.25rem; color: #4A3525;"></h2>
+        <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(1)">Next Month →</button>
+      </div>
+
+      <div id="calendar" class="calendar"></div>
+
+      <div class="legend">
+        <span><i class="dot available"></i>Available</span>
+        <span><i class="dot busy"></i>Photographer Busy</span>
+        <span><i class="dot mine"></i>Your Booking</span>
+        <span><i class="dot blocked"></i>Unavailable / Past</span>
+      </div>
+      <p style="font-size: 0.8rem; color: #777; margin-top: 1rem;">💡 Click an available date on the calendar to select it in the form.</p>
+    </div>
+
+    <!-- Booking Request Form -->
+    <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+      <h2 style="font-size: 1.3rem; color: #4A3525; margin-top: 0; margin-bottom: 1rem;">Event Details</h2>
+      <div asp-validation-summary="All" class="form-errors"></div>
+
+      <form method="post" id="bookingForm" asp-controller="Client" asp-action="Bookings">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Event Type</label>
+          <select asp-for="Form.EventType" id="eventType" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+            @foreach (var s in Model.Services) 
+            { 
+              <option value="@s.Name" selected="@(s.Name == Model.Form.EventType)">@s.Name</option> 
+            }
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Event Date</label>
+          <input asp-for="Form.Date" type="date" id="bookingDate" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+        </div>
+
+        <div class="two" style="margin-bottom: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Start Time</label>
+            <input asp-for="Form.StartTime" type="time" id="startTime" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">End Time</label>
+            <input asp-for="Form.EndTime" type="time" id="endTime" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Calculated Duration (Hours)</label>
+          <input asp-for="Form.Hours" type="number" min="1" id="hours" class="form-control" readonly style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px; background: #FAF7F2;"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Venue Location</label>
+          <input asp-for="Form.Location" class="form-control" placeholder="Venue name, address or suburb" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Special Requirements / Notes</label>
+          <textarea asp-for="Form.Notes" rows="3" class="form-control" placeholder="Any specific requests or instructions for Aysha..." style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+
+        <div class="estimate">
+          <span style="font-weight: 600; color: #7A6B5D;">Estimated Total:</span>
+          <strong id="priceEstimate">R0</strong>
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit" style="width: 100%; padding: 0.85rem; font-weight: 700; cursor: pointer;">
+          Submit Booking Request
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Client Booking History -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <h2 style="font-size: 1.4rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Your Booking History</h2>
+    @if (Model.Mine.Count == 0)
+    {
+      <p style="color: #666;">You have not requested any photography bookings yet.</p>
+    }
+    else
+    {
+      <div class="table-wrap">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+              <th style="padding: 12px;">Event</th>
+              <th style="padding: 12px;">Date</th>
+              <th style="padding: 12px;">Time</th>
+              <th style="padding: 12px;">Location</th>
+              <th style="padding: 12px;">Estimated Total</th>
+              <th style="padding: 12px;">Status</th>
+              <th style="padding: 12px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach (var b in Model.Mine)
+          {
+            <tr style="border-bottom: 1px solid #ECE4D8;">
+              <td style="padding: 12px; font-weight: 600;">@b.EventType</td>
+              <td style="padding: 12px;">@Format.Date(b.Date)</td>
+              <td style="padding: 12px;">@b.StartTime – @b.EndTime (@b.Hours h)</td>
+              <td style="padding: 12px;">@b.Location</td>
+              <td style="padding: 12px; font-weight: 700; color: #4A3525;">@Format.Rand(b.EstimatedTotal)</td>
+              <td style="padding: 12px;">
+                <span class="status @Format.StatusClass(b.Status)">@b.Status</span>
+              </td>
+              <td style="padding: 12px;">
+                @if (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+                {
+                  <form method="post" asp-controller="Client" asp-action="CancelBooking" onsubmit="return confirm('Are you sure you want to cancel this booking request?');" style="display: inline;">
+                    <input type="hidden" name="id" value="@b.Id" />
+                    <button class="text-btn" type="submit" style="color: #A93226;">Cancel</button>
+                  </form>
+                }
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  window.servicePricing = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Services.Select(s => new {
+    name = s.Name,
+    basePrice = s.BasePrice,
+    includedHours = s.IncludedHours,
+    extraHourPrice = s.ExtraHourPrice,
+    hourlyOnly = s.HourlyOnly
+  })));
+  document.addEventListener('DOMContentLoaded', function() {
+    initBookingCalendar();
+    initPriceCalculator();
+  });
+</script>
+}

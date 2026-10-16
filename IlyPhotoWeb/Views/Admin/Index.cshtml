@@ -1,0 +1,109 @@
+@model AdminDashboardViewModel
+@{ 
+    ViewData["Title"] = "Photographer Admin Dashboard"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">ADMIN DASHBOARD</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Studio Overview</h1>
+      <p style="color: #666; margin: 0;">Manage your photography bookings, client directories, invoices, and cloud galleries.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a class="btn btn-outline" href="/diagnostics" style="text-decoration: none; padding: 0.75rem 1.25rem;">🩺 System Diagnostics</a>
+      <a class="btn btn-primary" asp-action="Bookings" style="text-decoration: none; padding: 0.75rem 1.25rem;">📅 Manage Calendar</a>
+    </div>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="stat">
+      <span>Pending Requests</span>
+      <strong style="color: @(Model.PendingCount > 0 ? "#C0392B" : "#4A3525");">@Model.PendingCount</strong>
+      <small>@(Model.PendingCount == 0 ? "All requests processed" : "Requires approval")</small>
+    </article>
+
+    <article class="stat">
+      <span>Events This Month</span>
+      <strong>@Model.UpcomingThisMonth</strong>
+      <small>Confirmed shoots</small>
+    </article>
+
+    <article class="stat">
+      <span>Outstanding EFT</span>
+      <strong>@Model.OutstandingCount</strong>
+      <small>@Format.Rand(Model.OutstandingTotal) total unpaid</small>
+    </article>
+
+    <article class="stat">
+      <span>Registered Clients</span>
+      <strong>@Model.ClientCount</strong>
+      <small>Active client accounts</small>
+    </article>
+  </section>
+
+  <!-- Pending Booking Approvals -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
+    <h2 style="font-size: 1.4rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Pending Booking Requests</h2>
+    @if (Model.Pending.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">No pending requests awaiting approval.</p>
+    }
+    else
+    {
+      @foreach (var b in Model.Pending)
+      {
+        <div class="event-row" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 0; border-top: 1px solid #ECE4D8;">
+          <div style="display: flex; align-items: center; gap: 1.25rem;">
+            <div class="date-box">
+              <b>@b.EventDate.Day</b>
+              <span>@b.EventDate.ToString("MMM", System.Globalization.CultureInfo.InvariantCulture).ToUpperInvariant()</span>
+            </div>
+            <div>
+              <h3 style="margin: 0 0 0.25rem 0; font-size: 1.2rem;">@b.EventType · <span style="color: #7A6B5D; font-size: 0.95rem;">@b.ClientName (@b.ClientId)</span></h3>
+              <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                🕒 @b.StartTime – @b.EndTime (@b.Hours h) &nbsp;•&nbsp; 📍 @b.Location &nbsp;•&nbsp; <strong>Estimate:</strong> @Format.Rand(b.EstimatedTotal)
+              </p>
+              @if (!string.IsNullOrEmpty(b.Notes))
+              {
+                <p style="margin: 0.25rem 0 0 0; color: #888; font-size: 0.82rem; font-style: italic;">"@b.Notes"</p>
+              }
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <form method="post" asp-controller="Admin" asp-action="ApproveBooking" style="margin: 0;">
+              <input type="hidden" name="id" value="@b.Id" />
+              <input type="hidden" name="returnTo" value="Index" />
+              <button class="btn btn-primary btn-sm" type="submit" style="cursor: pointer;">✓ Approve</button>
+            </form>
+            <form method="post" asp-controller="Admin" asp-action="DenyBooking" style="margin: 0;">
+              <input type="hidden" name="id" value="@b.Id" />
+              <input type="hidden" name="returnTo" value="Index" />
+              <button class="btn btn-outline btn-sm" type="submit" style="color: #C0392B; cursor: pointer;">✕ Deny</button>
+            </form>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+    <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
+      <h3 style="color: #4A3525; margin-top: 0;">☁️ Azure Gallery Uploads</h3>
+      <p style="color: #666; font-size: 0.88rem;">Upload full client albums directly into Azure Blob Storage with multiple-file explorer picker.</p>
+      <a asp-action="Galleries" class="btn btn-outline btn-sm" style="text-decoration: none;">Manage Albums →</a>
+    </div>
+
+    <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
+      <h3 style="color: #4A3525; margin-top: 0;">📄 Generate Tax Invoices</h3>
+      <p style="color: #666; font-size: 0.88rem;">Generate client invoices with automated EFT banking statements and instant email dispatch.</p>
+      <a asp-action="Invoices" class="btn btn-outline btn-sm" style="text-decoration: none;">Manage Invoices →</a>
+    </div>
+
+    <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
+      <h3 style="color: #4A3525; margin-top: 0;">🏷️ Packages & Pricing</h3>
+      <p style="color: #666; font-size: 0.88rem;">Update Matric Ball, Wedding, Corporate, and custom hourly packages and pricing formulas.</p>
+      <a asp-action="Services" class="btn btn-outline btn-sm" style="text-decoration: none;">Update Rates →</a>
+    </div>
+  </div>
+</div>
