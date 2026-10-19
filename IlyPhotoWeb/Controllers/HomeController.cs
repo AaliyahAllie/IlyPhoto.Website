@@ -103,13 +103,13 @@ public class HomeController : Controller
                 Message = model.Message.Trim(),
                 CreatedAt = Timestamp.GetCurrentTimestamp()
             });
-            TempData["ContactSuccess"] = "Thank you! Your enquiry has been received. Aysha will get in touch with you shortly.";
+            TempData["ContactSuccess"] = "Thank you! Your enquiry has been saved to Azure Table Storage. Aysha will get in touch with you shortly.";
             return RedirectToAction(nameof(Contact));
         }
-        catch
+        catch (Exception ex)
         {
-            TempData["ContactSuccess"] = "Thank you! Your message has been received.";
-            return RedirectToAction(nameof(Contact));
+            ModelState.AddModelError("", $"We could not save your enquiry right now ({ex.Message}). Please verify your details and try again.");
+            return View(model);
         }
     }
 

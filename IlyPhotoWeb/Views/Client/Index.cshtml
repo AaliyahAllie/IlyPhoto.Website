@@ -6,9 +6,9 @@
 <div class="container" style="padding: 2.5rem 1rem;">
   <section class="dashboard-head">
     <div>
-      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT PORTAL</p>
+      <p style="font-size: 0.85rem; letter-spacing: 0.1em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT PORTAL</p>
       <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Welcome, @(User.Identity?.Name ?? "Client")</h1>
-      <p style="color: #666; margin: 0;">Your bookings, private photo galleries, and invoices are all in one place.</p>
+      <p style="color: #3D3D3D; margin: 0;">Your bookings, private photo galleries, notifications, and invoices are all in one place.</p>
     </div>
     <a class="btn btn-primary" asp-action="Bookings" style="padding: 0.75rem 1.5rem; text-decoration: none; font-weight: 700;">+ New Booking Request</a>
   </section>
@@ -41,7 +41,7 @@
       }
       else 
       { 
-        <strong class="status @Format.StatusClass(Model.Next.Status)" style="font-size: 1.25rem; margin-top: 0.5rem;">@Model.Next.Status</strong>
+        <strong class="status @Format.StatusClass(Model.Next.Status)" style="font-size: 1.15rem; margin-top: 0.5rem;">@Model.Next.Status</strong>
         <small>@Model.Next.EventType</small> 
       }
     </article>
@@ -51,7 +51,7 @@
     <h2 style="font-size: 1.4rem; color: #4A3525; margin-bottom: 1rem;">Next Scheduled Event</h2>
     @if (Model.Next is null)
     {
-      <p style="color: #666;">You currently have no upcoming events scheduled. <a asp-action="Bookings" style="color: #4A3525; font-weight: 700;">Request a booking</a> to secure your date!</p>
+      <p style="color: #3D3D3D;">You currently have no upcoming events scheduled. <a asp-action="Bookings" style="color: #4A3525; font-weight: 700;">Request a booking</a> to secure your date!</p>
     }
     else
     {
@@ -62,12 +62,12 @@
         </div>
         <div style="flex: 1;">
           <h3 style="margin: 0 0 0.25rem 0; font-size: 1.2rem;">@Model.Next.EventType</h3>
-          <p style="margin: 0; color: #666; font-size: 0.9rem;">
+          <p style="margin: 0; color: #2C2C2C; font-size: 0.95rem;">
             🕒 @Model.Next.StartTime – @Model.Next.EndTime (@Model.Next.Hours hours) &nbsp;•&nbsp; 📍 @Model.Next.Location
           </p>
           @if (!string.IsNullOrEmpty(Model.Next.Notes))
           {
-            <p style="margin: 0.35rem 0 0 0; color: #888; font-size: 0.85rem; font-style: italic;">"@Model.Next.Notes"</p>
+            <p style="margin: 0.35rem 0 0 0; color: #4A3525; font-size: 0.9rem; font-style: italic;">"@Model.Next.Notes"</p>
           }
         </div>
         <span class="status @Format.StatusClass(Model.Next.Status)">@Model.Next.Status</span>
@@ -75,16 +75,53 @@
     }
   </div>
 
+  <!-- Reliable Notifications Panel -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.4rem; color: #4A3525; margin: 0;">🔔 Account &amp; Booking Notifications</h2>
+      <span class="badge" style="background: #EAE3D2; color: #4A3525; font-weight: 700;">@Model.Notifications.Count recent</span>
+    </div>
+    @if (Model.Notifications.Count == 0)
+    {
+      <p style="color: #3D3D3D; margin: 0;">No notifications yet. Confirmations, reschedules, invoices, and gallery updates will appear here automatically.</p>
+    }
+    else
+    {
+      <div style="display: grid; gap: 0.85rem;">
+        @foreach (var n in Model.Notifications)
+        {
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem; border-radius: 6px; border: 1px solid @(n.IsRead ? "#ECE4D8" : "#C5A059"); background: @(n.IsRead ? "#FAF7F2" : "#FFFDF9");">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                <span class="badge" style="background: #4A3525; color: #FFF; font-size: 0.78rem; padding: 0.2rem 0.5rem;">@n.Category</span>
+                <strong style="color: #1A1A1A; font-size: 1rem;">@n.Title</strong>
+              </div>
+              <p style="margin: 0.2rem 0; color: #2C2C2C; font-size: 0.92rem;">@n.Message</p>
+              <small style="color: #5C4B3B; font-size: 0.82rem;">@Format.Date(Format.Iso(n.CreatedAt.ToDateTime()))</small>
+            </div>
+            @if (!n.IsRead)
+            {
+              <form method="post" asp-controller="Client" asp-action="MarkNotificationRead" style="margin: 0;">
+                <input type="hidden" name="id" value="@n.Id" />
+                <button type="submit" class="btn btn-outline btn-sm" style="white-space: nowrap;">Mark Read</button>
+              </form>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
     <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
       <h3 style="color: #4A3525; margin-top: 0;">📸 Access Private Galleries</h3>
-      <p style="color: #666; font-size: 0.9rem;">View high-resolution photography collections uploaded by Aysha Allie for your events, and download full albums in ZIP format.</p>
+      <p style="color: #2C2C2C; font-size: 0.95rem;">View high-resolution photography collections uploaded by Aysha Allie for your events, and download full albums in ZIP format.</p>
       <a asp-action="Gallery" class="btn btn-outline btn-sm" style="margin-top: 0.5rem; text-decoration: none;">Go to Galleries →</a>
     </div>
 
     <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
-      <h3 style="color: #4A3525; margin-top: 0;">🏦 Invoices & Bank EFT</h3>
-      <p style="color: #666; font-size: 0.9rem;">Review tax invoices, access printable banking statement sheets, and make direct EFT payments through your banking app.</p>
+      <h3 style="color: #4A3525; margin-top: 0;">🏦 Invoices &amp; Bank EFT</h3>
+      <p style="color: #2C2C2C; font-size: 0.95rem;">Review tax invoices, access printable banking statement sheets, and make direct EFT payments through your banking app.</p>
       <a asp-action="Invoices" class="btn btn-outline btn-sm" style="margin-top: 0.5rem; text-decoration: none;">View Invoices →</a>
     </div>
   </div>

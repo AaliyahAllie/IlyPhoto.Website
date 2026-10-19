@@ -30,8 +30,7 @@ public static class InvoiceStatus
 }
 
 /// <summary>
-/// Cross-platform compatible timestamp struct.
-/// Replaces Firestore Timestamp with standard UTC DateTime representation while keeping identical method signatures.
+/// Cross-platform compatible UTC timestamp struct used for Azure Table Storage entity serialization.
 /// </summary>
 public readonly struct Timestamp : IEquatable<Timestamp>
 {
@@ -96,8 +95,39 @@ public class Booking
     public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
 
     public DateTime EventDate =>
-        DateTime.TryParseExact(Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : DateTime.Today;
+        Format.TryParseDate(Date, out var d) ? d : DateTime.Today;
     public string Label => $"{EventType} — {Format.Date(Date)}";
+
+    public bool BelongsToClient(string? clientId, string? email = null, string? uid = null, string? fullName = null)
+    {
+        if (!string.IsNullOrWhiteSpace(clientId))
+        {
+            if (string.Equals(ClientId, clientId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Uid, clientId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ClientEmail, clientId, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var cleanEmail = email.Trim();
+            if (string.Equals(ClientEmail, cleanEmail, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ClientId, cleanEmail, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Uid, cleanEmail, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        if (!string.IsNullOrWhiteSpace(uid))
+        {
+            if (string.Equals(Uid, uid, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ClientId, uid, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        if (!string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(ClientEmail))
+        {
+            if (string.Equals(ClientName, fullName.Trim(), StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
 }
 
 // Azure Table: blockedDates
@@ -187,5 +217,19 @@ public class ContactEnquiry
     public string Email { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Message { get; set; } = "";
+    public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
+}
+
+// Azure Table: notifications
+public class NotificationItem
+{
+    public string Id { get; set; } = "";
+    public string ClientId { get; set; } = "";
+    public string RecipientEmail { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string Category { get; set; } = "Booking"; // Booking, Invoice, Gallery, Security
+    public string RelatedId { get; set; } = "";
+    public bool IsRead { get; set; }
     public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
 }

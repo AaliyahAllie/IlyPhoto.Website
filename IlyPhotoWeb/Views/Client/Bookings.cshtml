@@ -6,11 +6,18 @@
 <div class="container" style="padding: 2.5rem 1rem;">
   <section class="dashboard-head">
     <div>
-      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT BOOKING</p>
-      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Request A Session</h1>
-      <p style="color: #666; margin: 0;">Check the photographer's real-time availability across all months and request your event booking.</p>
+      <p style="font-size: 0.85rem; letter-spacing: 0.1em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT BOOKING</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Request or Reschedule A Session</h1>
+      <p style="color: #3D3D3D; margin: 0;">Check the photographer's real-time availability across all months, request a new session, or reschedule an active booking.</p>
     </div>
   </section>
+
+  @if (TempData["BookingError"] is string err)
+  {
+    <div class="notice error" style="margin-bottom: 1.5rem; background: #FDEDEC; border-left: 4px solid #922B21; color: #922B21; padding: 1rem; border-radius: 4px; font-weight: 600;">
+      @err
+    </div>
+  }
 
   <section class="booking-layout">
     <!-- Interactive Multi-Month Calendar -->
@@ -21,6 +28,7 @@
         <button type="button" class="btn btn-outline btn-sm" onclick="changeMonth(1)">Next Month →</button>
       </div>
 
+      <div id="calendarStatusNotice" style="display: none; margin-bottom: 0.75rem; padding: 0.65rem 0.85rem; border-radius: 4px; background: #FEF9E7; border: 1px solid #F9E79F; color: #7D6608; font-size: 0.88rem; font-weight: 600;"></div>
       <div id="calendar" class="calendar"></div>
 
       <div class="legend">
@@ -29,58 +37,58 @@
         <span><i class="dot mine"></i>Your Booking</span>
         <span><i class="dot blocked"></i>Unavailable / Past</span>
       </div>
-      <p style="font-size: 0.8rem; color: #777; margin-top: 1rem;">💡 Click an available date on the calendar to select it in the form.</p>
+      <p style="font-size: 0.88rem; color: #3D3D3D; margin-top: 1rem;">💡 Click an available date on the calendar to select it in the form.</p>
     </div>
 
     <!-- Booking Request Form -->
     <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
-      <h2 style="font-size: 1.3rem; color: #4A3525; margin-top: 0; margin-bottom: 1rem;">Event Details</h2>
+      <h2 style="font-size: 1.35rem; color: #4A3525; margin-top: 0; margin-bottom: 1rem;">Event Details</h2>
       <div asp-validation-summary="All" class="form-errors"></div>
 
       <form method="post" id="bookingForm" asp-controller="Client" asp-action="Bookings">
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Event Type</label>
-          <select asp-for="Form.EventType" id="eventType" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+          <label for="eventType" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Event Type / Package</label>
+          <select asp-for="Form.EventType" id="eventType" class="form-control" style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 0.95rem;">
             @foreach (var s in Model.Services) 
             { 
-              <option value="@s.Name" selected="@(s.Name == Model.Form.EventType)">@s.Name</option> 
+              <option value="@s.Name" selected="@(s.Name == Model.Form.EventType)">@s.Name (@Format.Rand(s.BasePrice))</option> 
             }
           </select>
         </div>
 
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Event Date</label>
-          <input asp-for="Form.Date" type="date" id="bookingDate" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+          <label for="bookingDate" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Event Date</label>
+          <input asp-for="Form.Date" type="date" id="bookingDate" class="form-control" style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 0.95rem;" required/>
         </div>
 
         <div class="two" style="margin-bottom: 1rem;">
           <div>
-            <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Start Time</label>
-            <input asp-for="Form.StartTime" type="time" id="startTime" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+            <label for="startTime" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Start Time</label>
+            <input asp-for="Form.StartTime" type="time" id="startTime" class="form-control" style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 0.95rem;" required/>
           </div>
           <div>
-            <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">End Time</label>
-            <input asp-for="Form.EndTime" type="time" id="endTime" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" required/>
+            <label for="endTime" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">End Time</label>
+            <input asp-for="Form.EndTime" type="time" id="endTime" class="form-control" style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 0.95rem;" required/>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Calculated Duration (Hours)</label>
-          <input asp-for="Form.Hours" type="number" min="1" id="hours" class="form-control" readonly style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px; background: #FAF7F2;"/>
+          <label for="hours" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Calculated Duration (Hours)</label>
+          <input asp-for="Form.Hours" type="number" min="1" id="hours" class="form-control" readonly style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; background: #FAF7F2; font-size: 0.95rem;"/>
         </div>
 
         <div class="form-group" style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Venue Location</label>
-          <input asp-for="Form.Location" class="form-control" placeholder="Venue name, address or suburb" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+          <label asp-for="Form.Location" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Venue Location</label>
+          <input asp-for="Form.Location" class="form-control" placeholder="Venue name, address or suburb" required style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 0.95rem;"/>
         </div>
 
         <div class="form-group" style="margin-bottom: 1.25rem;">
-          <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Special Requirements / Notes</label>
-          <textarea asp-for="Form.Notes" rows="3" class="form-control" placeholder="Any specific requests or instructions for Aysha..." style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px; resize: vertical;"></textarea>
+          <label asp-for="Form.Notes" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Special Requirements / Notes</label>
+          <textarea asp-for="Form.Notes" rows="3" class="form-control" placeholder="Any specific requests or instructions for Aysha..." style="width: 100%; padding: 0.7rem; border: 1px solid #8C7A6B; border-radius: 4px; resize: vertical; font-size: 0.95rem;"></textarea>
         </div>
 
         <div class="estimate">
-          <span style="font-weight: 600; color: #7A6B5D;">Estimated Total:</span>
+          <span style="font-weight: 700; color: #2C1E14;">Estimated Total:</span>
           <strong id="priceEstimate">R0</strong>
         </div>
 
@@ -96,7 +104,7 @@
     <h2 style="font-size: 1.4rem; color: #4A3525; margin-top: 0; margin-bottom: 1.25rem;">Your Booking History</h2>
     @if (Model.Mine.Count == 0)
     {
-      <p style="color: #666;">You have not requested any photography bookings yet.</p>
+      <p style="color: #3D3D3D;">You have not requested any photography bookings yet.</p>
     }
     else
     {
@@ -107,10 +115,10 @@
               <th style="padding: 12px;">Event</th>
               <th style="padding: 12px;">Date</th>
               <th style="padding: 12px;">Time</th>
-              <th style="padding: 12px;">Location</th>
+              <th style="padding: 12px;">Venue / Location</th>
               <th style="padding: 12px;">Estimated Total</th>
               <th style="padding: 12px;">Status</th>
-              <th style="padding: 12px;">Action</th>
+              <th style="padding: 12px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -125,12 +133,24 @@
               <td style="padding: 12px;">
                 <span class="status @Format.StatusClass(b.Status)">@b.Status</span>
               </td>
-              <td style="padding: 12px;">
-                @if (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+              <td style="padding: 12px; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                @if (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Rescheduled)
                 {
-                  <form method="post" asp-controller="Client" asp-action="CancelBooking" onsubmit="return confirm('Are you sure you want to cancel this booking request?');" style="display: inline;">
+                  <button type="button"
+                          class="btn btn-outline btn-sm"
+                          data-id="@b.Id"
+                          data-event="@b.EventType"
+                          data-date="@b.Date"
+                          data-start="@b.StartTime"
+                          data-end="@b.EndTime"
+                          data-location="@b.Location"
+                          data-notes="@b.Notes"
+                          onclick="openClientEditBooking(this)">
+                    Edit / Reschedule
+                  </button>
+                  <form method="post" asp-controller="Client" asp-action="CancelBooking" onsubmit="return confirm('Are you sure you want to cancel this booking request?');" style="display: inline; margin: 0;">
                     <input type="hidden" name="id" value="@b.Id" />
-                    <button class="text-btn" type="submit" style="color: #A93226;">Cancel</button>
+                    <button class="text-btn" type="submit" style="color: #922B21; font-weight: 700;">Cancel</button>
                   </form>
                 }
               </td>
@@ -143,6 +163,55 @@
   </div>
 </div>
 
+<!-- Client Edit / Reschedule Booking Dialog -->
+<dialog id="clientEditDialog" style="border: 0; border-radius: 8px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <form method="post" asp-controller="Client" asp-action="EditBooking" class="dialog-card">
+    <h2 style="color: #4A3525; margin-top: 0;">Edit / Reschedule Booking</h2>
+    <input type="hidden" name="Id" id="ceId" />
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label for="ceEventType" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Package / Event Type</label>
+      <select name="EventType" id="ceEventType" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;">
+        @foreach (var s in Model.Services)
+        {
+          <option value="@s.Name">@s.Name (@Format.Rand(s.BasePrice))</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label for="ceDate" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">New Event Date</label>
+      <input type="date" name="Date" id="ceDate" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;" />
+    </div>
+
+    <div class="two" style="margin-bottom: 1rem;">
+      <div>
+        <label for="ceStart" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Start Time</label>
+        <input type="time" name="StartTime" id="ceStart" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;" />
+      </div>
+      <div>
+        <label for="ceEnd" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">End Time</label>
+        <input type="time" name="EndTime" id="ceEnd" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;" />
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label for="ceLocation" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Venue Location</label>
+      <input type="text" name="Location" id="ceLocation" class="form-control" required maxlength="200" style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;" />
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1.25rem;">
+      <label for="ceNotes" style="display: block; font-size: 0.92rem; font-weight: 700; color: #2C1E14; margin-bottom: 0.35rem;">Notes / Requirements</label>
+      <textarea name="Notes" id="ceNotes" rows="2" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #8C7A6B; border-radius: 4px;"></textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button class="btn btn-outline" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-primary" type="submit">Save Changes</button>
+    </div>
+  </form>
+</dialog>
+
 @section Scripts {
 <script>
   window.servicePricing = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Services.Select(s => new {
@@ -152,6 +221,16 @@
     extraHourPrice = s.ExtraHourPrice,
     hourlyOnly = s.HourlyOnly
   })));
+  function openClientEditBooking(btn) {
+    document.getElementById('ceId').value = btn.getAttribute('data-id') || '';
+    document.getElementById('ceEventType').value = btn.getAttribute('data-event') || '';
+    document.getElementById('ceDate').value = btn.getAttribute('data-date') || '';
+    document.getElementById('ceStart').value = btn.getAttribute('data-start') || '14:00';
+    document.getElementById('ceEnd').value = btn.getAttribute('data-end') || '17:00';
+    document.getElementById('ceLocation').value = btn.getAttribute('data-location') || '';
+    document.getElementById('ceNotes').value = btn.getAttribute('data-notes') || '';
+    document.getElementById('clientEditDialog').showModal();
+  }
   document.addEventListener('DOMContentLoaded', function() {
     initBookingCalendar();
     initPriceCalculator();

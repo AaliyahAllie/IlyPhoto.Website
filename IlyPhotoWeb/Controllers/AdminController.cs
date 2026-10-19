@@ -36,6 +36,9 @@ public class AdminController : Controller
         _emails = emails;
     }
 
+    private static bool IsActiveConfirmed(Booking b) =>
+        b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Rescheduled;
+
     // ---------- Dashboard ----------
     public async Task<IActionResult> Index()
     {
@@ -51,7 +54,7 @@ public class AdminController : Controller
         return View(new AdminDashboardViewModel
         {
             PendingCount = pending.Count,
-            UpcomingThisMonth = bookings.Count(b => b.Status == BookingStatus.Confirmed
+            UpcomingThisMonth = bookings.Count(b => IsActiveConfirmed(b)
                 && string.CompareOrdinal(b.Date, todayIso) >= 0 && string.CompareOrdinal(b.Date, monthEnd) <= 0),
             OutstandingCount = outstanding.Count,
             OutstandingTotal = outstanding.Sum(i => i.Total),
@@ -68,7 +71,7 @@ public class AdminController : Controller
         return View(new AdminBookingsViewModel
         {
             Pending = all.Where(b => b.Status == BookingStatus.Pending).ToList(),
-            Upcoming = all.Where(b => b.Status == BookingStatus.Confirmed && string.CompareOrdinal(b.Date, todayIso) >= 0).ToList()
+            Upcoming = all.Where(b => IsActiveConfirmed(b) && string.CompareOrdinal(b.Date, todayIso) >= 0).ToList()
         });
     }
 
@@ -96,13 +99,45 @@ public class AdminController : Controller
         }
         else
         {
-            await _bookings.SetStatusAsync(id, BookingStatus.Confirmed);
-            var client = await _users.GetByClientIdAsync(b.ClientId);
-            if (client is not null)
+            b.Status = BookingStatus.Confirmed;
+
+            // Auto-generate linked invoice if one does not exist yet (System Flow Fig. 5)
+            var existingInvoices = await _invoices.ListByClientAsync(b.ClientId);
+            var linked = existingInvoices.FirstOrDefault(i => i.BookingId == b.Id);
+            if (linked is null)
             {
-                await _emails.SendBookingConfirmationEmailAsync(b, client);
+                var todayIso = Format.TodayIso();
+                var dueIso = Format.TryParseDate(b.Date, out var eventDt) && eventDt > Format.TodaySA()
+                    ? Format.Iso(eventDt)
+                    : Format.Iso(Format.TodaySA().AddDays(7));
+
+                linked = await _invoices.CreateAsync(new Invoice
+                {
+                    ClientId = b.ClientId,
+                    BookingId = b.Id,
+                    BookingLabel = b.Label,
+                    IssueDate = todayIso,
+                    DueDate = dueIso,
+                    Service = $"{b.EventType} ({b.Hours}h coverage at {b.Location})",
+                    Quantity = 1,
+                    Price = b.EstimatedTotal > 0 ? b.EstimatedTotal : 1000,
+                    Status = InvoiceStatus.Unpaid,
+                    EmailSent = true
+                });
+                b.InvoiceNumber = linked.InvoiceNo;
+                b.InvoiceStatus = linked.Status;
             }
-            TempData["AdminMessage"] = $"Booking for {b.ClientName} ({b.EventType}) has been confirmed!";
+
+            await _bookings.UpdateBookingAsync(b);
+
+            var client = await _users.GetByClientIdAsync(b.ClientId)
+                ?? (!string.IsNullOrWhiteSpace(b.ClientEmail) ? await _users.GetByEmailAsync(b.ClientEmail) : null)
+                ?? new UserProfile { ClientId = b.ClientId, FullName = b.ClientName, Email = b.ClientEmail, Phone = b.ClientPhone };
+
+            await _emails.SendBookingConfirmationEmailAsync(b, client);
+            await _emails.SendInvoiceEmailAsync(linked, client);
+
+            TempData["AdminMessage"] = $"Booking for {b.ClientName} ({b.EventType}) confirmed and Invoice {linked.InvoiceNo} dispatched!";
         }
         return BackTo(returnTo);
     }
@@ -113,31 +148,80 @@ public class AdminController : Controller
         var b = await _bookings.GetAsync(id);
         if (b is not null && b.Status == BookingStatus.Pending)
         {
-            await _bookings.SetStatusAsync(id, BookingStatus.Denied);
-            TempData["AdminMessage"] = $"Booking for {b.ClientName} was denied.";
+            b.Status = BookingStatus.Denied;
+            await _bookings.UpdateBookingAsync(b);
+
+            var client = await _users.GetByClientIdAsync(b.ClientId)
+                ?? (!string.IsNullOrWhiteSpace(b.ClientEmail) ? await _users.GetByEmailAsync(b.ClientEmail) : null)
+                ?? new UserProfile { ClientId = b.ClientId, FullName = b.ClientName, Email = b.ClientEmail };
+
+            await _emails.SendBookingConfirmationEmailAsync(b, client);
+            TempData["AdminMessage"] = $"Booking for {b.ClientName} was denied and the client was notified.";
         }
         return BackTo(returnTo);
     }
 
     [HttpPost]
-    public async Task<IActionResult> RescheduleBooking(string id, string date, string startTime, string endTime, string? returnTo)
+    public async Task<IActionResult> CompleteBooking(string id, string? returnTo)
+    {
+        var b = await _bookings.GetAsync(id);
+        if (b is not null && IsActiveConfirmed(b))
+        {
+            b.Status = BookingStatus.Completed;
+            await _bookings.UpdateBookingAsync(b);
+
+            var client = await _users.GetByClientIdAsync(b.ClientId)
+                ?? (!string.IsNullOrWhiteSpace(b.ClientEmail) ? await _users.GetByEmailAsync(b.ClientEmail) : null)
+                ?? new UserProfile { ClientId = b.ClientId, FullName = b.ClientName, Email = b.ClientEmail };
+
+            await _emails.SendBookingConfirmationEmailAsync(b, client);
+            TempData["AdminMessage"] = $"Booking for {b.ClientName} marked as Completed.";
+        }
+        return BackTo(returnTo);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RescheduleBooking(
+        string id,
+        string date,
+        string startTime,
+        string endTime,
+        string? location,
+        string? notes,
+        string? returnTo)
     {
         var b = await _bookings.GetAsync(id);
         var services = await _services.ListAsync();
         var hours = Format.HoursBetween(startTime, endTime);
 
-        if (b is null || (b.Status != BookingStatus.Pending && b.Status != BookingStatus.Confirmed))
+        if (b is null || (b.Status != BookingStatus.Pending && !IsActiveConfirmed(b)))
             TempData["AdminError"] = "That booking can no longer be rescheduled.";
         else if (!Format.TryParseDate(date, out var d) || d < Format.TodaySA() || hours is null)
             TempData["AdminError"] = "Please select a valid future date and start/end times.";
-        else if (await _bookings.IsBlockedAsync(date) || await _bookings.HasConfirmedOnDateAsync(date, b.Id))
+        else if (await _bookings.HasConflictOnDateAsync(date, b.Id))
             TempData["AdminError"] = "That selected date is not available.";
         else
         {
             var service = services.FirstOrDefault(s => s.Name == b.EventType);
             var total = service?.PriceFor(hours.Value) ?? b.EstimatedTotal;
-            await _bookings.RescheduleAsync(id, date, startTime, endTime, hours.Value, total);
-            TempData["AdminMessage"] = $"Booking moved to {Format.Date(date)} ({startTime} - {endTime}).";
+            var updated = await _bookings.RescheduleAsync(
+                id,
+                date,
+                startTime,
+                endTime,
+                hours.Value,
+                total,
+                location,
+                notes,
+                b.EventType,
+                BookingStatus.Rescheduled);
+
+            var client = await _users.GetByClientIdAsync(b.ClientId)
+                ?? (!string.IsNullOrWhiteSpace(b.ClientEmail) ? await _users.GetByEmailAsync(b.ClientEmail) : null)
+                ?? new UserProfile { ClientId = b.ClientId, FullName = b.ClientName, Email = b.ClientEmail };
+
+            await _emails.SendBookingRescheduledEmailAsync(updated, client);
+            TempData["AdminMessage"] = $"Booking rescheduled to {Format.Date(date)} ({startTime} - {endTime}) at {updated.Location} and client notified.";
         }
         return BackTo(returnTo);
     }
@@ -175,9 +259,15 @@ public class AdminController : Controller
     public async Task<IActionResult> Invoices()
     {
         var clients = await _users.ListClientsAsync();
-        var byId = clients.ToDictionary(c => c.ClientId, c => c);
+        var byId = new Dictionary<string, UserProfile>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in clients)
+        {
+            if (!string.IsNullOrWhiteSpace(c.ClientId)) byId[c.ClientId] = c;
+            if (!string.IsNullOrWhiteSpace(c.Email)) byId[c.Email] = c;
+            if (!string.IsNullOrWhiteSpace(c.Id)) byId[c.Id] = c;
+        }
         var invoices = await _invoices.ListAllAsync();
-        var bookings = (await _bookings.ListAllAsync()).Where(b => b.Status == BookingStatus.Confirmed).ToList();
+        var bookings = (await _bookings.ListAllAsync()).Where(IsActiveConfirmed).ToList();
 
         return View(new AdminInvoicesViewModel
         {
@@ -207,7 +297,7 @@ public class AdminController : Controller
 
         if (client is null)
             TempData["AdminError"] = "Please select a valid client.";
-        else if (booking is not null && booking.ClientId != client.ClientId)
+        else if (booking is not null && !booking.BelongsToClient(client.ClientId, client.Email, client.Id, client.FullName))
             TempData["AdminError"] = "That booking does not belong to the selected client.";
         else if (!Format.TryParseDate(form.IssueDate, out _) || !Format.TryParseDate(form.DueDate, out _))
             TempData["AdminError"] = "Please enter valid issue and due dates.";
@@ -234,7 +324,13 @@ public class AdminController : Controller
                 EmailSent = true
             });
 
-            // Immediately dispatch invoice via email to the client for EFT payment
+            if (booking is not null)
+            {
+                booking.InvoiceNumber = inv.InvoiceNo;
+                booking.InvoiceStatus = inv.Status;
+                await _bookings.UpdateBookingAsync(booking);
+            }
+
             await _emails.SendInvoiceEmailAsync(inv, client);
 
             TempData["AdminMessage"] = $"Invoice {inv.InvoiceNo} generated and emailed to {client.FullName} ({client.Email}).";
@@ -248,6 +344,16 @@ public class AdminController : Controller
         if (InvoiceStatus.All.Contains(status))
         {
             await _invoices.SetStatusAsync(id, status);
+            var inv = await _invoices.GetAsync(id);
+            if (inv is not null && !string.IsNullOrWhiteSpace(inv.BookingId))
+            {
+                var b = await _bookings.GetAsync(inv.BookingId);
+                if (b is not null)
+                {
+                    b.InvoiceStatus = status;
+                    await _bookings.UpdateBookingAsync(b);
+                }
+            }
             TempData["AdminMessage"] = $"Invoice payment status updated to {status}.";
         }
         return RedirectToAction(nameof(Invoices));
@@ -260,7 +366,7 @@ public class AdminController : Controller
         {
             Galleries = await _galleries.ListAllAsync(),
             Clients = await _users.ListClientsAsync(),
-            Bookings = (await _bookings.ListAllAsync()).Where(b => b.Status == BookingStatus.Confirmed).ToList()
+            Bookings = (await _bookings.ListAllAsync()).Where(b => IsActiveConfirmed(b) || b.Status == BookingStatus.Completed).ToList()
         });
     }
 
@@ -280,7 +386,7 @@ public class AdminController : Controller
 
         if (client is null)
             TempData["AdminError"] = "Client not found.";
-        else if (booking is not null && booking.ClientId != client.ClientId)
+        else if (booking is not null && !booking.BelongsToClient(client.ClientId, client.Email, client.Id, client.FullName))
             TempData["AdminError"] = "That booking does not belong to the selected client.";
         else if (string.IsNullOrWhiteSpace(title) || title.Length > 150)
             TempData["AdminError"] = "Please provide an album title.";
@@ -297,7 +403,9 @@ public class AdminController : Controller
                 PortfolioApproved = allowPortfolio
             }, photos, ct);
 
-            TempData["AdminMessage"] = $"Successfully uploaded {gallery.PhotoCount} photo(s) to \"{gallery.Title}\" for {client.FullName}."
+            await _emails.SendGalleryReadyEmailAsync(gallery, client);
+
+            TempData["AdminMessage"] = $"Successfully uploaded {gallery.PhotoCount} photo(s) to \"{gallery.Title}\" for {client.FullName} and notified client."
                 + (skipped > 0 ? $" ({skipped} files were skipped: only JPG/PNG/WEBP/GIF up to 50MB supported)." : "");
         }
         return RedirectToAction(nameof(Galleries));
@@ -322,7 +430,7 @@ public class AdminController : Controller
         var bookings = await _bookings.ListAllAsync();
         var rows = clients.Select(c =>
         {
-            var mine = bookings.Where(b => b.ClientId == c.ClientId).ToList();
+            var mine = bookings.Where(b => b.BelongsToClient(c.ClientId, c.Email, c.Id, c.FullName)).ToList();
             var last = mine.Select(b => b.CreatedAt.ToDateTime()).DefaultIfEmpty(c.CreatedAt.ToDateTime()).Max();
             return new ClientRow
             {

@@ -70,6 +70,31 @@ public class AccountController : Controller
         return RedirectToAction("Index", "Client");
     }
 
+    [HttpGet]
+    public IActionResult ForgotPassword()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToDashboard(User.IsInRole(Roles.Admin));
+
+        return View(new ForgotPasswordViewModel());
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+
+        var result = await _auth.ResetPasswordAsync(model.Email.Trim().ToLowerInvariant(), model.NewPassword);
+        if (!result.Ok)
+        {
+            ModelState.AddModelError("", result.Error ?? "Password recovery failed. Please verify your registered email address.");
+            return View(model);
+        }
+
+        TempData["LoginSuccess"] = "Your password has been reset and a confirmation notification was sent to your account. You may now sign in.";
+        return RedirectToAction(nameof(Login));
+    }
+
     [HttpPost]
     public async Task<IActionResult> Logout()
     {

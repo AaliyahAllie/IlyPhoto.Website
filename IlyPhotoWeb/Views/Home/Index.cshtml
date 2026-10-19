@@ -4,34 +4,34 @@
 
 <!-- Hero Section -->
 <section style="background: linear-gradient(180deg, #FDFBF7 0%, #FAF7F2 100%); padding: 5rem 1rem 4rem; border-bottom: 1px solid #E2DACB;">
-    <div class="container" style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 4rem; align-items: center;">
+    <div class="container hero-grid" style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 4rem; align-items: center;">
         <div>
-            <p style="font-size: 0.8rem; letter-spacing: 0.15em; font-weight: 700; color: #4A3525; text-transform: uppercase; margin: 0 0 0.75rem 0;">
-                CAPE TOWN PHOTOGRAPHY STUDIO
+            <p style="font-size: 0.85rem; letter-spacing: 0.15em; font-weight: 700; color: #4A3525; text-transform: uppercase; margin: 0 0 0.75rem 0;" data-i18n="hero_eyebrow">
+                STRANDFONTEIN • CAPE TOWN PHOTOGRAPHY &amp; COMMUNITY MEDIA STUDIO
             </p>
-            <h1 style="font-size: clamp(2.6rem, 5vw, 4.2rem); font-family: var(--font-serif); font-weight: 700; line-height: 1.1; color: #1A1A1A; margin: 0 0 1.25rem 0;">
+            <h1 style="font-size: clamp(2.6rem, 5vw, 4.2rem); font-family: var(--font-serif); font-weight: 700; line-height: 1.1; color: #1A1A1A; margin: 0 0 1.25rem 0;" data-i18n="hero_title">
                 Moments worth keeping <span style="color: #4A3525; font-style: italic;">forever.</span>
             </h1>
-            <p style="font-size: 1.1rem; color: #555; line-height: 1.7; margin: 0 0 2rem 0; max-width: 580px;">
-                Specializing in matric balls, weddings, corporate functions, and private celebrations across the Western Cape. Experience timeless elegance through a personalized photographic lens.
+            <p style="font-size: 1.1rem; color: #2C2C2C; line-height: 1.7; margin: 0 0 2rem 0; max-width: 580px;" data-i18n="hero_desc">
+                Specializing in matric balls, weddings, corporate functions, and subsidized NGO &amp; community outreach across the Cape Flats and Western Cape. Experience timeless storytelling with direct social impact.
             </p>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <a asp-action="Pricing" class="btn btn-primary" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;">
-                    View Packages & Rates
+                <a asp-action="Pricing" class="btn btn-primary" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;" data-i18n="view_packages">
+                    View Packages &amp; Rates
                 </a>
-                <a asp-action="Portfolio" class="btn btn-outline" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;">
+                <a asp-action="Portfolio" class="btn btn-outline" style="padding: 0.85rem 1.75rem; font-weight: 700; text-decoration: none;" data-i18n="explore_portfolio">
                     Explore Portfolio →
                 </a>
             </div>
         </div>
 
-        <div style="text-align: center; background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 12px; padding: 3rem 2rem; box-shadow: 0 10px 30px rgba(74, 53, 37, 0.05);">
+        <div class="card" style="text-align: center; background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 12px; padding: 3rem 2rem; box-shadow: 0 10px 30px rgba(74, 53, 37, 0.05);">
             <img src="~/images/logo.png" alt="ILY PHOTO" style="max-width: 280px; width: 100%; object-fit: contain; margin-bottom: 1.5rem;" />
-            <div style="font-family: var(--font-serif); font-size: 1.3rem; color: #4A3525; font-style: italic;">
+            <div style="font-family: var(--font-serif); font-size: 1.35rem; color: #4A3525; font-style: italic;">
                 Capture forever.
             </div>
-            <p style="font-size: 0.85rem; color: #777; margin-top: 0.5rem;">
-                Cape Town, South Africa
+            <p style="font-size: 0.92rem; color: #3D3D3D; margin-top: 0.5rem;">
+                Strandfontein • Cape Town, South Africa
             </p>
         </div>
     </div>
@@ -41,41 +41,74 @@
 <section style="padding: 4.5rem 1rem;">
     <div class="container">
         <div style="text-align: center; margin-bottom: 3rem;">
-            <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">OUR SPECIALIZATIONS</p>
-            <h2 style="font-size: 2.2rem; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Stories, Celebrations & Milestones</h2>
-            <p style="color: #666; max-width: 550px; margin: 0 auto;">Dedicated packages crafted to deliver stunning imagery for life's biggest occasions.</p>
+            <p style="font-size: 0.85rem; letter-spacing: 0.1em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;">OUR SPECIALIZATIONS</p>
+            <h2 style="font-size: 2.2rem; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Stories, Celebrations &amp; Community Impact</h2>
+            <p style="color: #3D3D3D; max-width: 580px; margin: 0 auto;">Dedicated packages crafted to deliver stunning imagery for life's biggest occasions and local non-profit initiatives.</p>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;">
             <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
                 <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎓</div>
                 <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Matric Balls</h3>
-                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
-                    Arrivals, portraits, and celebration photography. Complete 2-3 hour coverage starting at R800.
+                <p style="color: #2C2C2C; font-size: 0.95rem; line-height: 1.6;">
+                    Arrivals, portraits, and celebration photography for Cape Flats &amp; Western Cape schools. Complete 2–3 hour coverage at R800.
                 </p>
             </div>
 
             <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
                 <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">💍</div>
                 <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Weddings</h3>
-                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
-                    Capturing intimate vows, ceremony, and reception. Starting from 4 hours at R1,500 (+R200/hr).
+                <p style="color: #2C2C2C; font-size: 0.95rem; line-height: 1.6;">
+                    Capturing intimate vows, nikahs, ceremonies, and receptions. Starting from 4 hours at R1,500 (+R200/hr).
                 </p>
             </div>
 
             <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
                 <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🏛️</div>
                 <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Corporate Events</h3>
-                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                <p style="color: #2C2C2C; font-size: 0.95rem; line-height: 1.6;">
                     Professional branding, launches, galas, and conferences. Starting from 4 hours at R2,000.
                 </p>
             </div>
 
             <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; text-align: center;">
-                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎂</div>
-                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">Custom Celebrations</h3>
-                <p style="color: #666; font-size: 0.9rem; line-height: 1.6;">
-                    Birthdays, anniversaries, and family portraits. Flexible coverage at R300 per hour.
+                <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🤝</div>
+                <h3 style="font-size: 1.3rem; color: #4A3525; margin-bottom: 0.5rem;">NGO &amp; Youth Outreach</h3>
+                <p style="color: #2C2C2C; font-size: 0.95rem; line-height: 1.6;">
+                    Subsidized coverage for registered charities, school milestones, and youth visual-literacy workshops from R450.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- NGO & Community Social Impact Section -->
+<section style="padding: 4rem 1rem; background: #F5EFE6; border-top: 1px solid #E2DACB; border-bottom: 1px solid #E2DACB;">
+    <div class="container">
+        <div style="max-width: 820px; margin: 0 auto; text-align: center;">
+            <p style="font-size: 0.85rem; letter-spacing: 0.12em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;">COMMUNITY EMPOWERMENT &amp; NGO PARTNERSHIP</p>
+            <h2 style="font-size: 2rem; color: #1A1A1A; margin: 0.4rem 0 1rem 0;">Why Our Community &amp; NGO Mission Matters</h2>
+            <p style="color: #2C2C2C; font-size: 1rem; line-height: 1.75; margin-bottom: 2rem;">
+                Many under-resourced schools, youth development NPOs, and community charities across Strandfontein, Mitchells Plain, and the wider Cape Flats lack access to professional visual documentation needed for donor reporting, fundraising campaigns, and preserving student milestones. Every commercial wedding or corporate booking helps subsidize our <strong>Community &amp; NGO Impact Programme</strong>.
+            </p>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
+            <div class="card" style="background: #FFF; border: 1px solid #D1C7B7; border-radius: 8px; padding: 1.5rem;">
+                <h3 style="color: #4A3525; margin-top: 0; font-size: 1.15rem;">1. NPO Donor &amp; Impact Storytelling</h3>
+                <p style="color: #2C2C2C; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Providing registered NPOs, feeding schemes, and local charities with verified, high-resolution visual documentation for annual reports and grant applications.
+                </p>
+            </div>
+            <div class="card" style="background: #FFF; border: 1px solid #D1C7B7; border-radius: 8px; padding: 1.5rem;">
+                <h3 style="color: #4A3525; margin-top: 0; font-size: 1.15rem;">2. Youth Visual-Literacy Mentorship</h3>
+                <p style="color: #2C2C2C; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Hosting practical camera, lighting, and digital editing workshops for aspiring high-school learners in Strandfontein to build employable creative skills.
+                </p>
+            </div>
+            <div class="card" style="background: #FFF; border: 1px solid #D1C7B7; border-radius: 8px; padding: 1.5rem;">
+                <h3 style="color: #4A3525; margin-top: 0; font-size: 1.15rem;">3. Accessible School &amp; Matric Coverage</h3>
+                <p style="color: #2C2C2C; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Ensuring every learner can celebrate their graduation and matric ball with dignified, studio-grade portraits regardless of household income.
                 </p>
             </div>
         </div>
@@ -86,7 +119,7 @@
 <section style="background: #4A3525; color: #FFFFFF; padding: 4rem 1rem; text-align: center;">
     <div class="container" style="max-width: 650px;">
         <h2 style="color: #FFFFFF; font-size: 2.2rem; margin-bottom: 0.75rem;">Ready to Secure Your Date?</h2>
-        <p style="color: #EAE3D2; font-size: 1.05rem; margin-bottom: 2rem; line-height: 1.6;">
+        <p style="color: #F5EFE6; font-size: 1.05rem; margin-bottom: 2rem; line-height: 1.6;">
             Create your client account to check live calendar availability, submit booking requests, and access your private cloud photo gallery.
         </p>
         <a asp-controller="Account" asp-action="Register" class="btn btn-secondary" style="padding: 0.85rem 2rem; font-weight: 700; text-decoration: none; font-size: 1.05rem;">

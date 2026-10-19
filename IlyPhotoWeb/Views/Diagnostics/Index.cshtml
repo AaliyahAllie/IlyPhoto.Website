@@ -1,16 +1,16 @@
 @model List<DiagnosticCheck>
 @{ 
-    ViewData["Title"] = "System Diagnostics"; 
+    ViewData["Title"] = "System Diagnostics & Cloud Schema"; 
 }
 
 <div class="container" style="padding: 2.5rem 1rem;">
   <div style="margin-bottom: 2rem;">
-    <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">SYSTEM HEALTH CHECK</p>
-    <h1 style="font-size: 2.2rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Firebase & Infrastructure Diagnostics</h1>
-    <p style="color: #666; max-width: 750px;">Live integration verification testing Cloud Firestore, Firebase Authentication, Admin SDK credentials, Web API Key, and local disk photo storage.</p>
+    <p style="font-size: 0.85rem; letter-spacing: 0.1em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;">SYSTEM HEALTH &amp; CLOUD DATABASE ARCHITECTURE</p>
+    <h1 style="font-size: 2.2rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Azure Table Storage &amp; Blob Infrastructure Diagnostics</h1>
+    <p style="color: #3D3D3D; max-width: 780px;">Live integration verification testing Microsoft Azure Table Storage (<code>ilyphotostorage</code>), Azure Blob Storage (<code>ilyphoto-galleries</code>), BCrypt authentication, and cross-platform REST synchronization.</p>
   </div>
 
-  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
     <table class="table" style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
@@ -27,18 +27,18 @@
           <td style="padding: 14px 18px;">
             @if (c.Status == "ok")
             {
-              <span class="badge" style="background-color: #E8F8F5; color: #117A65; border: 1px solid #A2D9CE; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✓ PASS</span>
+              <span class="badge" style="background-color: #E8F8F5; color: #0E6251; border: 1px solid #A2D9CE; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem;">✓ PASS</span>
             }
             else if (c.Status == "warn")
             {
-              <span class="badge" style="background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">⚠ NOTICE</span>
+              <span class="badge" style="background-color: #FEF9E7; color: #7D6608; border: 1px solid #F9E79F; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem;">⚠ NOTICE</span>
             }
             else
             {
-              <span class="badge" style="background-color: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✕ FAIL</span>
+              <span class="badge" style="background-color: #FDEDEC; color: #922B21; border: 1px solid #FADBD8; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem;">✕ FAIL</span>
             }
           </td>
-          <td style="padding: 14px 18px; font-size: 0.9rem; color: #444; line-height: 1.5;">@c.Detail</td>
+          <td style="padding: 14px 18px; font-size: 0.92rem; color: #2C2C2C; line-height: 1.5;">@c.Detail</td>
         </tr>
       }
       </tbody>
@@ -47,8 +47,65 @@
 
   @if (Model.All(c => c.Status == "ok"))
   {
-    <div class="notice flash" style="margin-top: 2rem; background-color: #E8F8F5; border-left: 4px solid #117A65; color: #117A65; padding: 1rem; border-radius: 4px;">
-      <strong>All systems operational!</strong> The live Firebase connection is fully functional. Both the client and admin portals are ready for bookings, photo uploads, and invoicing.
+    <div class="notice flash" style="margin-bottom: 2rem; background-color: #E8F8F5; border-left: 4px solid #0E6251; color: #0E6251; padding: 1rem; border-radius: 4px;">
+      <strong>All systems operational!</strong> The live Azure Table Storage &amp; Blob Storage connection is fully functional across Web and Android platforms.
     </div>
   }
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+    <h2 style="font-size: 1.5rem; color: #4A3525; margin-top: 0; margin-bottom: 0.75rem;">Azure Table Storage Schema, Keys, Client Links &amp; Integrity Rules</h2>
+    <p style="color: #3D3D3D; font-size: 0.95rem; margin-bottom: 1.25rem;">
+      All cross-platform entities are stored in Azure Storage Account <code>ilyphotostorage</code> using composite primary keys (<code>PartitionKey</code> + <code>RowKey</code>) and linked by human-readable foreign keys (<code>ClientId</code>, <code>BookingId</code>, <code>InvoiceNo</code>).
+    </p>
+    <div class="table-wrap">
+      <table class="table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+            <th style="padding: 12px;">Azure Table</th>
+            <th style="padding: 12px;">PartitionKey</th>
+            <th style="padding: 12px;">RowKey</th>
+            <th style="padding: 12px;">Foreign Key / Client Link</th>
+            <th style="padding: 12px;">Integrity &amp; Validation Rules</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;"><code>users</code></td>
+            <td style="padding: 12px;"><code>"user"</code></td>
+            <td style="padding: 12px;"><code>Id</code> (<code>user-...</code>)</td>
+            <td style="padding: 12px;"><code>ClientId</code> (<code>CL-1001</code>)</td>
+            <td style="padding: 12px;">Unique lowercase email; BCrypt password hash; atomic <code>CL-xxxx</code> sequence via <code>counters</code>.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;"><code>bookings</code></td>
+            <td style="padding: 12px;"><code>"booking"</code></td>
+            <td style="padding: 12px;"><code>Id</code> (<code>book-...</code>)</td>
+            <td style="padding: 12px;"><code>ClientId</code>, <code>Uid</code>, <code>InvoiceNumber</code></td>
+            <td style="padding: 12px;">Conflict check prevents double-booking on confirmed/rescheduled/blocked dates; rescheduling persists date, time, venue, package, price, and status.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;"><code>invoices</code></td>
+            <td style="padding: 12px;"><code>"invoice"</code></td>
+            <td style="padding: 12px;"><code>Id</code> (<code>inv-...</code>)</td>
+            <td style="padding: 12px;"><code>ClientId</code>, <code>BookingId</code></td>
+            <td style="padding: 12px;">Auto-generated on booking approval; sequential <code>INV-00001</code>; status synced back to linked booking.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;"><code>galleries</code></td>
+            <td style="padding: 12px;"><code>"gallery"</code></td>
+            <td style="padding: 12px;"><code>Id</code> (<code>gal-...</code>)</td>
+            <td style="padding: 12px;"><code>ClientId</code>, <code>BookingId</code></td>
+            <td style="padding: 12px;">Blobs stored under <code>galleries/{ClientId}/{GalleryId}/</code>; HMAC-SHA256 signed URLs with expiry.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;"><code>notifications</code></td>
+            <td style="padding: 12px;"><code>"notification"</code></td>
+            <td style="padding: 12px;"><code>Id</code> (<code>notif-...</code>)</td>
+            <td style="padding: 12px;"><code>ClientId</code>, <code>RelatedId</code></td>
+            <td style="padding: 12px;">Created on booking confirmation, reschedule, cancellation, invoice dispatch, gallery upload, and password recovery.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>

@@ -32,6 +32,18 @@ public class RegisterViewModel
     public string ConfirmPassword { get; set; } = "";
 }
 
+public class ForgotPasswordViewModel
+{
+    [Required(ErrorMessage = "Please enter your registered email address."), EmailAddress(ErrorMessage = "Please enter a valid email address."), StringLength(200)]
+    public string Email { get; set; } = "";
+
+    [Required(ErrorMessage = "Please choose a new password."), StringLength(100, MinimumLength = 6, ErrorMessage = "Your new password must be at least 6 characters.")]
+    public string NewPassword { get; set; } = "";
+
+    [Required(ErrorMessage = "Please confirm your new password."), Compare(nameof(NewPassword), ErrorMessage = "The passwords do not match.")]
+    public string ConfirmPassword { get; set; } = "";
+}
+
 // ---------- Client ----------
 public class BookingViewModel
 {
@@ -42,6 +54,18 @@ public class BookingViewModel
     public int Hours { get; set; } = 3;   // recalculated on server
     [Required(ErrorMessage = "Please enter the event location."), StringLength(200)]
     public string Location { get; set; } = "Cape Town";
+    [StringLength(1000)] public string Notes { get; set; } = "";
+}
+
+public class ClientEditBookingViewModel
+{
+    [Required] public string Id { get; set; } = "";
+    [Required] public string EventType { get; set; } = "";
+    [Required] public string Date { get; set; } = "";
+    [Required] public string StartTime { get; set; } = "14:00";
+    [Required] public string EndTime { get; set; } = "17:00";
+    [Required(ErrorMessage = "Please enter the event location."), StringLength(200)]
+    public string Location { get; set; } = "";
     [StringLength(1000)] public string Notes { get; set; } = "";
 }
 
@@ -59,6 +83,7 @@ public class ClientDashboardViewModel
     public int OutstandingCount { get; set; }
     public double OutstandingTotal { get; set; }
     public int GalleryCount { get; set; }
+    public List<NotificationItem> Notifications { get; set; } = new();
 }
 
 public class InvoiceSheetModel

@@ -5,22 +5,29 @@ using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews(options =>
+builder.Services.AddCors(options =>
 {
-    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    });
 });
+
+builder.Services.AddControllersWithViews();
 
 builder.Services.AddHttpContextAccessor();
 
 // ---- Configuration Sections ----
 builder.Services.Configure<AzureStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
+builder.Services.Configure<AzureCloudApiOptions>(builder.Configuration.GetSection("AzureCloudApi"));
 builder.Services.Configure<PhotoStorageOptions>(builder.Configuration.GetSection("PhotoStorage"));
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection("Admin"));
 builder.Services.Configure<BusinessOptions>(builder.Configuration.GetSection("Business"));
 
-// ---- Azure Cloud Database, Blob Storage & Stores ----
+// ---- Azure Cloud Database, Blob Storage, Shared Cloud Sync & Stores ----
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<AzureTableContext>();
+builder.Services.AddSingleton<AzureCloudSyncService>();
 builder.Services.AddSingleton<LocalDiskPhotoStorage>();
 builder.Services.AddSingleton<AzureBlobPhotoStorage>();
 builder.Services.AddSingleton<IPhotoStorage>(sp => sp.GetRequiredService<AzureBlobPhotoStorage>());
@@ -32,8 +39,9 @@ builder.Services.AddSingleton<ServiceStore>();
 builder.Services.AddSingleton<ReviewStore>();
 builder.Services.AddSingleton<EnquiryStore>();
 builder.Services.AddSingleton<GalleryStore>();
-builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<NotificationStore>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddSingleton<AuthService>();
 
 // ---- Authentication via Secure Cookie ----
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -51,11 +59,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 var app = builder.Build();
 
-// Pre-initialize Azure Table Storage & Azure Blob Storage at startup
+// Pre-initialize Azure Table Storage, Azure Blob Storage & Shared Cloud Sync at startup
 try
 {
     app.Services.GetRequiredService<AzureTableContext>();
     app.Services.GetRequiredService<AzureBlobPhotoStorage>();
+    var cloudSync = app.Services.GetRequiredService<AzureCloudSyncService>();
+    await cloudSync.EnsureSyncedAsync(force: true);
 }
 catch (Exception ex)
 {
@@ -71,6 +81,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

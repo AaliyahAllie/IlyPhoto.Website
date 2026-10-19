@@ -30,8 +30,8 @@ public class CalendarController : Controller
         foreach (var b in await _bookings.ListByDateRangeAsync(from, to))
         {
             var day = b.EventDate.Day.ToString();
-            var mine = !isAdmin && b.Uid == uid;
-            if (b.Status == BookingStatus.Confirmed)
+            var mine = !isAdmin && (b.Uid == uid || b.ClientId == User.ClientId());
+            if (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Rescheduled)
                 result[day] = mine ? "mine" : "busy";
             else if (b.Status == BookingStatus.Pending && mine && !result.ContainsKey(day))
                 result[day] = "mine";

@@ -1,12 +1,5 @@
 namespace IlyPhotoWeb.Services;
 
-public class FirebaseOptions
-{
-    public string ProjectId { get; set; } = "";
-    public string WebApiKey { get; set; } = "";
-    public string CredentialsPath { get; set; } = "";
-}
-
 public class AzureStorageOptions
 {
     /// <summary>Azure Storage Account connection string</summary>
@@ -16,6 +9,18 @@ public class AzureStorageOptions
     public string ContainerName { get; set; } = "ilyphoto-galleries";
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ConnectionString);
+}
+
+/// <summary>
+/// Configuration for synchronizing with the live Azure App Service API (`ilyphoto-api-st10212542.azurewebsites.net/api`)
+/// so the Desktop Website and Android Mobile App share the exact same live Azure Table & Blob Storage data
+/// even when running the website locally without raw storage account keys.
+/// </summary>
+public class AzureCloudApiOptions
+{
+    public bool Enabled { get; set; } = false;
+    public string BaseUrl { get; set; } = "https://ilyphoto-api-st10212542.azurewebsites.net/api";
+    public int SyncIntervalSeconds { get; set; } = 4;
 }
 
 /// <summary>Where uploaded photos are saved on this computer when Azure is not active.</summary>

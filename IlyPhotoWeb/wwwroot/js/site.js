@@ -1,6 +1,99 @@
-// ILY Photo - Integrated Client & Admin Scripts
+// ILY Photo - Integrated Client & Admin Scripts (Calendar, Pricing, Rescheduling, Dark Mode & Afrikaans/English Localization)
 
 let calendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+const I18N_DICTIONARY = {
+    en: {
+        nav_home: "Home",
+        nav_about: "About & NGO",
+        nav_portfolio: "Portfolio",
+        nav_pricing: "Pricing",
+        nav_contact: "Contact Us",
+        nav_signin: "Sign In",
+        nav_register: "Register",
+        nav_dashboard: "Dashboard",
+        nav_book: "Book Session",
+        nav_gallery: "My Private Gallery",
+        nav_invoices: "Invoices",
+        nav_reviews: "Reviews",
+        nav_profile: "Profile",
+        nav_logout: "Logout",
+        portal_subtitle: "CLIENT & PHOTOGRAPHER PORTAL",
+        welcome_back: "Welcome Back",
+        email_label: "Email Address",
+        password_label: "Password",
+        forgot_password: "Forgot password?",
+        sign_in_btn: "Sign In",
+        hero_eyebrow: "STRANDFONTEIN • CAPE TOWN PHOTOGRAPHY & COMMUNITY MEDIA STUDIO",
+        view_packages: "View Packages & Rates",
+        explore_portfolio: "Explore Portfolio →"
+    },
+    af: {
+        nav_home: "Tuis",
+        nav_about: "Oor Ons & NWO",
+        nav_portfolio: "Portefeulje",
+        nav_pricing: "Pryse & Pakkette",
+        nav_contact: "Kontak Ons",
+        nav_signin: "Meld Aan",
+        nav_register: "Registreer",
+        nav_dashboard: "Paneelbord",
+        nav_book: "Bespreek Sessie",
+        nav_gallery: "Privaat Galery",
+        nav_invoices: "Fakture",
+        nav_reviews: "Resensies",
+        nav_profile: "Profiel",
+        nav_logout: "Teken Uit",
+        portal_subtitle: "KLIËNT & FOTOGRAAF PORTAAL",
+        welcome_back: "Welkom Terug",
+        email_label: "E-posadres",
+        password_label: "Wagwoord",
+        forgot_password: "Wagwoord vergeet?",
+        sign_in_btn: "Meld Aan",
+        hero_eyebrow: "STRANDFONTEIN • KAAPSTAD FOTOGRAFIE & GEMEENSKAPSMEDIA-ATELJEE",
+        view_packages: "Bekyk Pakkette & Tariewe",
+        explore_portfolio: "Verken Portefeulje →"
+    }
+};
+
+function applyTheme(dark) {
+    if (dark) {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+        btn.textContent = dark ? '☀️ Light' : '🌙 Dark';
+    });
+}
+
+function toggleDarkMode() {
+    const isDark = !document.body.classList.contains('dark-mode');
+    localStorage.setItem('ily_theme', isDark ? 'dark' : 'light');
+    applyTheme(isDark);
+}
+
+function setLanguage(lang) {
+    const selected = (lang === 'af') ? 'af' : 'en';
+    localStorage.setItem('ily_lang', selected);
+    document.documentElement.lang = selected;
+    document.querySelectorAll('.lang-selector').forEach(sel => {
+        sel.value = selected;
+    });
+    const dict = I18N_DICTIONARY[selected] || I18N_DICTIONARY.en;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (key && dict[key]) {
+            el.textContent = dict[key];
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('ily_theme');
+    applyTheme(savedTheme === 'dark');
+    const savedLang = localStorage.getItem('ily_lang') || 'en';
+    setLanguage(savedLang);
+});
 
 function initBookingCalendar(admin = false) {
     window.calendarAdmin = admin;
@@ -21,13 +114,22 @@ async function renderCalendar() {
         titleEl.textContent = calendarDate.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
     }
 
-    // Ask the server which days are busy / mine / blocked for this month
+    const noticeEl = document.getElementById('calendarStatusNotice');
     let status = {};
     try {
         const res = await fetch(`/api/calendar?year=${y}&month=${m + 1}`, { credentials: 'same-origin' });
-        if (res.ok) status = await res.json();
+        if (res.ok) {
+            status = await res.json();
+            if (noticeEl) noticeEl.style.display = 'none';
+        } else if (noticeEl) {
+            noticeEl.textContent = 'Live calendar status could not be refreshed. Availability will be verified on the server when you submit.';
+            noticeEl.style.display = 'block';
+        }
     } catch (e) {
-        // show everything as open if the network request fails
+        if (noticeEl) {
+            noticeEl.textContent = 'Offline / network delay: live calendar status could not be loaded. Server-side conflict checks remain active.';
+            noticeEl.style.display = 'block';
+        }
     }
     if (calendarDate.getFullYear() !== y || calendarDate.getMonth() !== m) return;
 
@@ -118,10 +220,14 @@ function calcPrice() {
 
 // ---- Admin helpers ----
 function openReschedule(btn) {
-    document.getElementById('reId').value = btn.dataset.id;
-    document.getElementById('reDate').value = btn.dataset.date;
-    document.getElementById('reStart').value = btn.dataset.start;
-    document.getElementById('reEnd').value = btn.dataset.end;
+    document.getElementById('reId').value = btn.dataset.id || '';
+    document.getElementById('reDate').value = btn.dataset.date || '';
+    document.getElementById('reStart').value = btn.dataset.start || '10:00';
+    document.getElementById('reEnd').value = btn.dataset.end || '12:00';
+    const locEl = document.getElementById('reLocation');
+    if (locEl) locEl.value = btn.dataset.location || '';
+    const notesEl = document.getElementById('reNotes');
+    if (notesEl) notesEl.value = btn.dataset.notes || '';
     document.getElementById('rescheduleDialog').showModal();
 }
 

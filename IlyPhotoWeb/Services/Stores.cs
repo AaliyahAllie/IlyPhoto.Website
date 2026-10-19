@@ -7,107 +7,108 @@ namespace IlyPhotoWeb.Services;
 
 public class CounterStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
+    private const string TableName = "counters";
 
-    public CounterStore(AzureTableContext context) => _table = context.Counters;
+    public CounterStore(AzureTableContext context) => _context = context;
 
     /// <summary>Atomically increments counters/{name} and returns the new value.</summary>
     public async Task<long> NextAsync(string name, long start)
     {
-        try
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Counter name is required.", nameof(name));
+
+        var entity = await _context.GetEntityOrNullAsync(TableName, "counter", name);
+        long current = start;
+        if (entity != null && entity.TryGetValue("Value", out var v))
         {
-            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("counter", name);
-            long current = start;
-            if (entity.HasValue && entity.Value != null && entity.Value.TryGetValue("Value", out var v))
-            {
-                current = v is long l ? l : Convert.ToInt64(v);
-            }
-            long next = current + 1;
-            var newEntity = new TableEntity("counter", name) { { "Value", next } };
-            await _table.UpsertEntityAsync(newEntity, TableUpdateMode.Replace);
-            return next;
+            current = v is long l ? l : Convert.ToInt64(v);
         }
-        catch
-        {
-            return start + 1;
-        }
+        long next = current + 1;
+        var newEntity = new TableEntity("counter", name) { { "Value", next } };
+        await _context.UpsertAsync(TableName, newEntity, TableUpdateMode.Replace);
+        return next;
     }
 }
 
 public class UserStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "users";
 
-    public UserStore(AzureTableContext context) => _table = context.Users;
+    public UserStore(AzureTableContext context, AzureCloudSyncService? cloudSync = null)
+    {
+        _context = context;
+        _cloudSync = cloudSync;
+    }
 
     public async Task<UserProfile?> GetAsync(string uid)
     {
-        try
-        {
-            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("user", uid);
-            return entity.HasValue && entity.Value != null ? ToUserProfile(entity.Value) : null;
-        }
-        catch
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(uid)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entity = await _context.GetEntityOrNullAsync(TableName, "user", uid);
+        return entity != null ? ToUserProfile(entity) : null;
     }
 
     public async Task<UserProfile?> GetByEmailAsync(string email)
     {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var cleanEmail = email.Trim().ToLowerInvariant();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            var e = entity.GetString("Email") ?? entity.GetString("email") ?? "";
+            if (e.Equals(cleanEmail, StringComparison.OrdinalIgnoreCase))
             {
-                var e = entity.GetString("Email") ?? entity.GetString("email") ?? "";
-                if (e.Equals(cleanEmail, StringComparison.OrdinalIgnoreCase))
-                {
-                    return ToUserProfile(entity);
-                }
+                return ToUserProfile(entity);
             }
         }
-        catch { }
         return null;
     }
 
     public async Task<UserProfile?> GetByClientIdAsync(string clientId)
     {
-        try
+        if (string.IsNullOrWhiteSpace(clientId)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            var cid = entity.GetString("ClientId") ?? entity.GetString("clientId") ?? "";
+            var uid = entity.GetString("Id") ?? entity.GetString("id") ?? entity.GetString("uid") ?? entity.RowKey;
+            var em = entity.GetString("Email") ?? entity.GetString("email") ?? "";
+            if (cid.Equals(clientId, StringComparison.OrdinalIgnoreCase) ||
+                uid.Equals(clientId, StringComparison.OrdinalIgnoreCase) ||
+                em.Equals(clientId, StringComparison.OrdinalIgnoreCase))
             {
-                var cid = entity.GetString("ClientId") ?? entity.GetString("clientId") ?? "";
-                if (cid.Equals(clientId, StringComparison.OrdinalIgnoreCase))
-                {
-                    return ToUserProfile(entity);
-                }
+                return ToUserProfile(entity);
             }
         }
-        catch { }
         return null;
     }
 
     public async Task<List<UserProfile>> ListClientsAsync()
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<UserProfile>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            var role = entity.GetString("Role") ?? entity.GetString("role") ?? "";
+            if (role.Equals(Roles.Client, StringComparison.OrdinalIgnoreCase) || role.Equals("client", StringComparison.OrdinalIgnoreCase))
             {
-                var role = entity.GetString("Role") ?? entity.GetString("role") ?? "";
-                if (role.Equals(Roles.Client, StringComparison.OrdinalIgnoreCase) || role.Equals("client", StringComparison.OrdinalIgnoreCase))
-                {
-                    list.Add(ToUserProfile(entity));
-                }
+                list.Add(ToUserProfile(entity));
             }
         }
-        catch { }
         return list.OrderBy(u => u.ClientId, StringComparer.Ordinal).ToList();
     }
 
     public async Task SaveAsync(UserProfile p)
     {
+        if (string.IsNullOrWhiteSpace(p.Email))
+            throw new ArgumentException("User email is required.", nameof(p));
+
         if (string.IsNullOrWhiteSpace(p.Id)) p.Id = Guid.NewGuid().ToString("N");
         var entity = new TableEntity("user", p.Id)
         {
@@ -132,29 +133,23 @@ public class UserStore
             { "passwordHash", p.PasswordHash },
             { "CreatedAt", p.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Merge);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Merge);
     }
 
     public async Task UpdateContactAsync(string uid, string fullName, string phone)
     {
-        var user = await GetAsync(uid);
-        if (user != null)
-        {
-            user.FullName = fullName;
-            user.Phone = phone;
-            await SaveAsync(user);
-        }
+        var user = await GetAsync(uid) ?? throw new InvalidOperationException($"User '{uid}' not found.");
+        user.FullName = fullName;
+        user.Phone = phone;
+        await SaveAsync(user);
     }
 
     public async Task UpdateRoleAsync(string uid, string role, string clientId)
     {
-        var user = await GetAsync(uid);
-        if (user != null)
-        {
-            user.Role = role;
-            user.ClientId = clientId;
-            await SaveAsync(user);
-        }
+        var user = await GetAsync(uid) ?? throw new InvalidOperationException($"User '{uid}' not found.");
+        user.Role = role;
+        user.ClientId = clientId;
+        await SaveAsync(user);
     }
 
     private static UserProfile ToUserProfile(TableEntity e)
@@ -189,31 +184,79 @@ public class UserStore
 
 public class BookingStore
 {
-    private readonly TableClient _table;
-    private readonly TableClient _blockedTable;
+    private readonly AzureTableContext _context;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "bookings";
+    private const string BlockedTableName = "blockedDates";
 
-    public BookingStore(AzureTableContext context)
+    public BookingStore(AzureTableContext context, AzureCloudSyncService? cloudSync = null)
     {
-        _table = context.Bookings;
-        _blockedTable = context.BlockedDates;
+        _context = context;
+        _cloudSync = cloudSync;
     }
 
     public async Task<Booking?> GetAsync(string id)
     {
-        try
-        {
-            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("booking", id);
-            return entity.HasValue && entity.Value != null ? ToBooking(entity.Value) : null;
-        }
-        catch
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entity = await _context.GetEntityOrNullAsync(TableName, "booking", id);
+        return entity != null ? ToBooking(entity) : null;
     }
 
     public async Task<string> CreateAsync(Booking b)
     {
+        if (string.IsNullOrWhiteSpace(b.Date))
+            throw new ArgumentException("Booking date is required.", nameof(b));
+        if (string.IsNullOrWhiteSpace(b.EventType))
+            throw new ArgumentException("Booking service/event type is required.", nameof(b));
+
+        b.Date = Format.NormalizeDateIso(b.Date);
+        bool isExisting = !string.IsNullOrWhiteSpace(b.Id) &&
+                          (await _context.GetEntityOrNullAsync(TableName, "booking", b.Id)) != null;
+
         if (string.IsNullOrWhiteSpace(b.Id)) b.Id = "book-" + Guid.NewGuid().ToString("N")[..8];
+
+        if (!isExisting && _cloudSync != null && _cloudSync.IsEnabled)
+        {
+            var remoteId = await _cloudSync.PushCreateBookingAsync(b);
+            if (!string.IsNullOrWhiteSpace(remoteId))
+            {
+                b.Id = remoteId;
+            }
+        }
+
+        await SaveEntityLocalAsync(b);
+
+        if (isExisting && _cloudSync != null && _cloudSync.IsEnabled)
+        {
+            await _cloudSync.PushUpdateBookingAsync(b);
+        }
+
+        return b.Id;
+    }
+
+    public async Task<string> UpdateBookingAsync(Booking b)
+    {
+        if (string.IsNullOrWhiteSpace(b.Date))
+            throw new ArgumentException("Booking date is required.", nameof(b));
+        if (string.IsNullOrWhiteSpace(b.EventType))
+            throw new ArgumentException("Booking service/event type is required.", nameof(b));
+
+        b.Date = Format.NormalizeDateIso(b.Date);
+        if (string.IsNullOrWhiteSpace(b.Id)) b.Id = "book-" + Guid.NewGuid().ToString("N")[..8];
+
+        await SaveEntityLocalAsync(b);
+
+        if (_cloudSync != null && _cloudSync.IsEnabled)
+        {
+            await _cloudSync.PushUpdateBookingAsync(b);
+        }
+
+        return b.Id;
+    }
+
+    private Task SaveEntityLocalAsync(Booking b)
+    {
         var entity = new TableEntity("booking", b.Id)
         {
             { "Id", b.Id },
@@ -235,6 +278,7 @@ public class BookingStore
             { "StartTime", b.StartTime },
             { "eventTime", b.StartTime },
             { "EndTime", b.EndTime },
+            { "endTime", b.EndTime },
             { "Hours", b.Hours },
             { "durationHours", b.Hours },
             { "Location", b.Location },
@@ -251,135 +295,142 @@ public class BookingStore
             { "invoiceStatus", b.InvoiceStatus },
             { "CreatedAt", b.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
-        return b.Id;
+        return _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
     }
 
     public async Task<List<Booking>> ListAllAsync()
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<Booking>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                list.Add(ToBooking(entity));
-            }
+            list.Add(ToBooking(entity));
         }
-        catch { }
         return list.OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList();
     }
 
-    public async Task<List<Booking>> ListByClientAsync(string clientId)
+    public async Task<List<Booking>> ListByClientAsync(string clientId, string? email = null, string? uid = null, string? fullName = null)
     {
-        var list = new List<Booking>();
-        try
-        {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                var cid = entity.GetString("ClientId") ?? entity.GetString("clientId") ?? entity.GetString("Uid") ?? entity.GetString("uid");
-                if (string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
-                {
-                    list.Add(ToBooking(entity));
-                }
-            }
-        }
-        catch { }
-        return list.OrderByDescending(b => b.Date).ToList();
+        var all = await ListAllAsync();
+        return all
+            .Where(b => b.BelongsToClient(clientId, email, uid, fullName))
+            .OrderByDescending(b => b.Date)
+            .ToList();
     }
 
     public async Task<List<Booking>> ListByDateRangeAsync(string fromIso, string toIso)
     {
+        var normFrom = Format.NormalizeDateIso(fromIso);
+        var normTo = Format.NormalizeDateIso(toIso);
         var all = await ListAllAsync();
-        return all.Where(b => string.Compare(b.Date, fromIso, StringComparison.Ordinal) >= 0 &&
-                              string.Compare(b.Date, toIso, StringComparison.Ordinal) <= 0).ToList();
+        return all.Where(b => string.Compare(Format.NormalizeDateIso(b.Date), normFrom, StringComparison.Ordinal) >= 0 &&
+                              string.Compare(Format.NormalizeDateIso(b.Date), normTo, StringComparison.Ordinal) <= 0).ToList();
     }
 
     public async Task<bool> HasConfirmedOnDateAsync(string dateIso, string? exceptBookingId = null)
     {
+        var normDate = Format.NormalizeDateIso(dateIso);
         var all = await ListAllAsync();
-        return all.Any(b => b.Date == dateIso && b.Status == BookingStatus.Confirmed && b.Id != exceptBookingId);
+        return all.Any(b => Format.NormalizeDateIso(b.Date) == normDate &&
+            (string.Equals(b.Status, BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(b.Status, BookingStatus.Rescheduled, StringComparison.OrdinalIgnoreCase)) &&
+            !string.Equals(b.Id, exceptBookingId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<bool> HasConflictOnDateAsync(string dateIso, string? exceptBookingId = null)
+    {
+        var normDate = Format.NormalizeDateIso(dateIso);
+        if (await IsBlockedAsync(normDate)) return true;
+        return await HasConfirmedOnDateAsync(normDate, exceptBookingId);
     }
 
     public async Task SetStatusAsync(string id, string status)
     {
-        var b = await GetAsync(id);
-        if (b != null)
-        {
-            b.Status = status;
-            await CreateAsync(b);
-        }
+        var b = await GetAsync(id) ?? throw new InvalidOperationException($"Booking '{id}' not found.");
+        b.Status = status;
+        await UpdateBookingAsync(b);
     }
 
-    public async Task RescheduleAsync(string id, string date, string start, string end, int hours, double total)
+    public async Task<Booking> RescheduleAsync(
+        string id,
+        string date,
+        string start,
+        string end,
+        int hours,
+        double total,
+        string? location = null,
+        string? notes = null,
+        string? eventType = null,
+        string? status = null)
     {
-        var b = await GetAsync(id);
-        if (b != null)
-        {
-            b.Date = date;
-            b.StartTime = start;
-            b.EndTime = end;
-            b.Hours = hours;
-            b.EstimatedTotal = total;
-            await CreateAsync(b);
-        }
+        var b = await GetAsync(id) ?? throw new InvalidOperationException($"Booking '{id}' not found.");
+        b.Date = Format.NormalizeDateIso(date);
+        b.StartTime = start;
+        b.EndTime = end;
+        b.Hours = hours;
+        b.EstimatedTotal = total;
+        if (!string.IsNullOrWhiteSpace(location)) b.Location = location.Trim();
+        if (notes != null) b.Notes = notes.Trim();
+        if (!string.IsNullOrWhiteSpace(eventType)) b.EventType = eventType.Trim();
+        if (!string.IsNullOrWhiteSpace(status)) b.Status = status.Trim();
+        await UpdateBookingAsync(b);
+        return b;
     }
 
     // ---- blocked dates ----
     public async Task<bool> IsBlockedAsync(string dateIso)
     {
-        try
-        {
-            var entity = await _blockedTable.GetEntityIfExistsAsync<TableEntity>("blockedDate", dateIso);
-            return entity.HasValue;
-        }
-        catch
-        {
-            return false;
-        }
+        if (string.IsNullOrWhiteSpace(dateIso)) return false;
+        var norm = Format.NormalizeDateIso(dateIso);
+        var entity = await _context.GetEntityOrNullAsync(BlockedTableName, "blockedDate", norm);
+        return entity != null;
     }
 
     public async Task<List<BlockedDate>> ListBlockedAsync(string fromIso, string toIso)
     {
+        var normFrom = Format.NormalizeDateIso(fromIso);
+        var normTo = Format.NormalizeDateIso(toIso);
         var list = new List<BlockedDate>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(BlockedTableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _blockedTable.QueryAsync<TableEntity>())
+            var d = Format.NormalizeDateIso(entity.GetString("Date") ?? entity.RowKey);
+            if (string.Compare(d, normFrom, StringComparison.Ordinal) >= 0 &&
+                string.Compare(d, normTo, StringComparison.Ordinal) <= 0)
             {
-                var d = entity.GetString("Date") ?? entity.RowKey;
-                if (string.Compare(d, fromIso, StringComparison.Ordinal) >= 0 &&
-                    string.Compare(d, toIso, StringComparison.Ordinal) <= 0)
+                list.Add(new BlockedDate
                 {
-                    list.Add(new BlockedDate
-                    {
-                        Id = entity.RowKey,
-                        Date = d,
-                        Reason = entity.GetString("Reason") ?? ""
-                    });
-                }
+                    Id = entity.RowKey,
+                    Date = d,
+                    Reason = entity.GetString("Reason") ?? ""
+                });
             }
         }
-        catch { }
         return list.OrderBy(b => b.Date).ToList();
     }
 
     public async Task BlockAsync(string dateIso, string reason)
     {
-        var entity = new TableEntity("blockedDate", dateIso)
+        if (string.IsNullOrWhiteSpace(dateIso))
+            throw new ArgumentException("Date is required.", nameof(dateIso));
+
+        var norm = Format.NormalizeDateIso(dateIso);
+        var entity = new TableEntity("blockedDate", norm)
         {
-            { "Date", dateIso },
+            { "Date", norm },
             { "Reason", reason },
             { "CreatedAt", DateTime.UtcNow.ToString("o") }
         };
-        await _blockedTable.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        await _context.UpsertAsync(BlockedTableName, entity, TableUpdateMode.Replace);
     }
 
     public async Task UnblockAsync(string dateIso)
     {
-        try
-        {
-            await _blockedTable.DeleteEntityAsync("blockedDate", dateIso);
-        }
-        catch { }
+        if (string.IsNullOrWhiteSpace(dateIso))
+            throw new ArgumentException("Date is required.", nameof(dateIso));
+        var norm = Format.NormalizeDateIso(dateIso);
+        await _context.DeleteAsync(BlockedTableName, "blockedDate", norm);
     }
 
     private static Booking ToBooking(TableEntity e)
@@ -396,6 +447,8 @@ public class BookingStore
         if (e.TryGetValue("Hours", out var h)) hours = Convert.ToInt32(h);
         else if (e.TryGetValue("durationHours", out var dh)) hours = Convert.ToInt32(dh);
 
+        var rawDate = e.GetString("Date") ?? e.GetString("eventDate") ?? "";
+
         return new Booking
         {
             Id = e.GetString("Id") ?? e.GetString("id") ?? e.RowKey,
@@ -405,9 +458,9 @@ public class BookingStore
             ClientEmail = e.GetString("ClientEmail") ?? e.GetString("clientEmail") ?? "",
             ClientPhone = e.GetString("ClientPhone") ?? e.GetString("clientPhone") ?? "",
             EventType = e.GetString("EventType") ?? e.GetString("serviceName") ?? "",
-            Date = e.GetString("Date") ?? e.GetString("eventDate") ?? "",
+            Date = Format.NormalizeDateIso(rawDate),
             StartTime = e.GetString("StartTime") ?? e.GetString("eventTime") ?? "",
-            EndTime = e.GetString("EndTime") ?? "",
+            EndTime = e.GetString("EndTime") ?? e.GetString("endTime") ?? "",
             Hours = hours,
             Location = e.GetString("Location") ?? e.GetString("eventLocation") ?? "",
             Notes = e.GetString("Notes") ?? e.GetString("requirements") ?? "",
@@ -422,20 +475,37 @@ public class BookingStore
 
 public class InvoiceStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
     private readonly CounterStore _counters;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "invoices";
 
-    public InvoiceStore(AzureTableContext context, CounterStore counters)
+    public InvoiceStore(AzureTableContext context, CounterStore counters, AzureCloudSyncService? cloudSync = null)
     {
-        _table = context.Invoices;
+        _context = context;
         _counters = counters;
+        _cloudSync = cloudSync;
+    }
+
+    public async Task<Invoice?> GetAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entity = await _context.GetEntityOrNullAsync(TableName, "invoice", id);
+        return entity != null ? ToInvoice(entity) : null;
     }
 
     public async Task<Invoice> CreateAsync(Invoice inv)
     {
+        if (string.IsNullOrWhiteSpace(inv.ClientId))
+            throw new ArgumentException("Invoice ClientId is required.", nameof(inv));
+
         if (string.IsNullOrWhiteSpace(inv.Id)) inv.Id = "inv-" + Guid.NewGuid().ToString("N")[..8];
-        var n = await _counters.NextAsync("invoices", 0);
-        inv.InvoiceNo = $"INV-{n:D5}";
+        if (string.IsNullOrWhiteSpace(inv.InvoiceNo))
+        {
+            var n = await _counters.NextAsync("invoices", 0);
+            inv.InvoiceNo = $"INV-{n:D5}";
+        }
         inv.Total = Math.Round(inv.Quantity * inv.Price, 2);
 
         var entity = new TableEntity("invoice", inv.Id)
@@ -445,8 +515,8 @@ public class InvoiceStore
             { "ClientId", inv.ClientId },
             { "BookingId", inv.BookingId },
             { "BookingLabel", inv.BookingLabel },
-            { "IssueDate", inv.IssueDate },
-            { "DueDate", inv.DueDate },
+            { "IssueDate", Format.NormalizeDateIso(inv.IssueDate) },
+            { "DueDate", Format.NormalizeDateIso(inv.DueDate) },
             { "Service", inv.Service },
             { "Quantity", inv.Quantity },
             { "Price", inv.Price },
@@ -455,54 +525,46 @@ public class InvoiceStore
             { "EmailSent", inv.EmailSent },
             { "CreatedAt", inv.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
         return inv;
     }
 
     public async Task<List<Invoice>> ListAllAsync()
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<Invoice>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            list.Add(ToInvoice(entity));
+        }
+        return list.OrderByDescending(i => i.InvoiceNo, StringComparer.Ordinal).ToList();
+    }
+
+    public async Task<List<Invoice>> ListByClientAsync(string clientId, string? email = null, string? uid = null)
+    {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var list = new List<Invoice>();
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
+        {
+            var cid = entity.GetString("ClientId") ?? "";
+            if ((!string.IsNullOrWhiteSpace(clientId) && string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(email) && string.Equals(cid, email.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(uid) && string.Equals(cid, uid, StringComparison.OrdinalIgnoreCase)))
             {
                 list.Add(ToInvoice(entity));
             }
         }
-        catch { }
-        return list.OrderByDescending(i => i.InvoiceNo, StringComparer.Ordinal).ToList();
-    }
-
-    public async Task<List<Invoice>> ListByClientAsync(string clientId)
-    {
-        var list = new List<Invoice>();
-        try
-        {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                var cid = entity.GetString("ClientId");
-                if (string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
-                {
-                    list.Add(ToInvoice(entity));
-                }
-            }
-        }
-        catch { }
         return list.OrderByDescending(i => i.InvoiceNo, StringComparer.Ordinal).ToList();
     }
 
     public async Task SetStatusAsync(string id, string status)
     {
-        try
-        {
-            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("invoice", id);
-            if (entity.HasValue && entity.Value != null)
-            {
-                entity.Value["Status"] = status;
-                await _table.UpsertEntityAsync(entity.Value, TableUpdateMode.Replace);
-            }
-        }
-        catch { }
+        var entity = await _context.GetEntityOrNullAsync(TableName, "invoice", id)
+            ?? throw new InvalidOperationException($"Invoice '{id}' not found.");
+        entity["Status"] = status;
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
     }
 
     private static Invoice ToInvoice(TableEntity e)
@@ -539,21 +601,19 @@ public class InvoiceStore
 
 public class ServiceStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
+    private const string TableName = "services";
 
-    public ServiceStore(AzureTableContext context) => _table = context.Services;
+    public ServiceStore(AzureTableContext context) => _context = context;
 
     public async Task<List<ServicePackage>> ListAsync()
     {
         var list = new List<ServicePackage>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                list.Add(ToService(entity));
-            }
+            list.Add(ToService(entity));
         }
-        catch { }
 
         if (list.Count == 0)
         {
@@ -569,6 +629,9 @@ public class ServiceStore
 
     public async Task SaveAsync(ServicePackage s)
     {
+        if (string.IsNullOrWhiteSpace(s.Name))
+            throw new ArgumentException("Service package name is required.", nameof(s));
+
         if (string.IsNullOrWhiteSpace(s.Id)) s.Id = Guid.NewGuid().ToString("N")[..8];
         var entity = new TableEntity("service", s.Id)
         {
@@ -581,7 +644,7 @@ public class ServiceStore
             { "HourlyOnly", s.HourlyOnly },
             { "SortOrder", s.SortOrder }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
     }
 
     private static ServicePackage ToService(TableEntity e)
@@ -615,7 +678,7 @@ public class ServiceStore
         {
             Id = "matric-ball",
             Name = "Matric Ball",
-            Description = "2-3 hours of event & portrait coverage.",
+            Description = "2-3 hours of event & portrait coverage for Cape Flats & Cape Town schools.",
             BasePrice = 800,
             IncludedHours = 3,
             ExtraHourPrice = 0,
@@ -654,18 +717,38 @@ public class ServiceStore
             ExtraHourPrice = 300,
             HourlyOnly = true,
             SortOrder = 4
+        },
+        new()
+        {
+            Id = "ngo-community",
+            Name = "Community / NGO & Youth Outreach",
+            Description = "Subsidized non-profit coverage for registered charities, school milestones, and youth visual-literacy initiatives.",
+            BasePrice = 450,
+            IncludedHours = 3,
+            ExtraHourPrice = 150,
+            HourlyOnly = false,
+            SortOrder = 5
         }
     };
 }
 
 public class ReviewStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "reviews";
 
-    public ReviewStore(AzureTableContext context) => _table = context.Reviews;
+    public ReviewStore(AzureTableContext context, AzureCloudSyncService? cloudSync = null)
+    {
+        _context = context;
+        _cloudSync = cloudSync;
+    }
 
     public async Task CreateAsync(Review r)
     {
+        if (string.IsNullOrWhiteSpace(r.Text))
+            throw new ArgumentException("Review text is required.", nameof(r));
+
         if (string.IsNullOrWhiteSpace(r.Id)) r.Id = "rev-" + Guid.NewGuid().ToString("N")[..8];
         var entity = new TableEntity("review", r.Id)
         {
@@ -681,42 +764,44 @@ public class ReviewStore
             { "approved", r.Approved },
             { "CreatedAt", r.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
+        if (_cloudSync != null && _cloudSync.IsEnabled)
+        {
+            await _cloudSync.PushReviewAsync(r);
+        }
     }
 
-    public async Task<List<Review>> ListByClientAsync(string clientId)
+    public async Task<List<Review>> ListByClientAsync(string clientId, string? clientName = null)
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<Review>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            var cid = entity.GetString("ClientId") ?? entity.GetString("clientId") ?? "";
+            var cname = entity.GetString("ClientName") ?? entity.GetString("authorName") ?? "";
+            if ((!string.IsNullOrWhiteSpace(clientId) && string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(clientName) && string.Equals(cname, clientName.Trim(), StringComparison.OrdinalIgnoreCase)))
             {
-                var cid = entity.GetString("ClientId") ?? entity.GetString("clientId");
-                if (string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
-                {
-                    list.Add(ToReview(entity));
-                }
+                list.Add(ToReview(entity));
             }
         }
-        catch { }
         return list.OrderByDescending(r => r.CreatedAt.ToDateTime()).ToList();
     }
 
     public async Task<List<Review>> ListApprovedAsync()
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<Review>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
+            bool approved = entity.GetBoolean("Approved") ?? entity.GetBoolean("approved") ?? false;
+            if (approved)
             {
-                bool approved = entity.GetBoolean("Approved") ?? entity.GetBoolean("approved") ?? false;
-                if (approved)
-                {
-                    list.Add(ToReview(entity));
-                }
+                list.Add(ToReview(entity));
             }
         }
-        catch { }
         return list.OrderByDescending(r => r.CreatedAt.ToDateTime()).ToList();
     }
 
@@ -747,12 +832,21 @@ public class ReviewStore
 
 public class EnquiryStore
 {
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "enquiries";
 
-    public EnquiryStore(AzureTableContext context) => _table = context.Enquiries;
+    public EnquiryStore(AzureTableContext context, AzureCloudSyncService? cloudSync = null)
+    {
+        _context = context;
+        _cloudSync = cloudSync;
+    }
 
     public async Task CreateAsync(ContactEnquiry e)
     {
+        if (string.IsNullOrWhiteSpace(e.FullName) || string.IsNullOrWhiteSpace(e.Email) || string.IsNullOrWhiteSpace(e.Message))
+            throw new ArgumentException("Full name, email, and message are required for a contact enquiry.", nameof(e));
+
         if (string.IsNullOrWhiteSpace(e.Id)) e.Id = "enq-" + Guid.NewGuid().ToString("N")[..8];
         var entity = new TableEntity("enquiry", e.Id)
         {
@@ -769,32 +863,119 @@ public class EnquiryStore
             { "status", "pending" },
             { "CreatedAt", e.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
+        if (_cloudSync != null && _cloudSync.IsEnabled)
+        {
+            await _cloudSync.PushEnquiryAsync(e);
+        }
     }
 
     public async Task<List<ContactEnquiry>> ListAllAsync()
     {
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
         var list = new List<ContactEnquiry>();
-        try
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
         {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                var createdAtStr = entity.GetString("CreatedAt") ?? entity.GetString("createdAt");
-                DateTime dt = DateTime.UtcNow;
-                if (!string.IsNullOrEmpty(createdAtStr)) DateTime.TryParse(createdAtStr, out dt);
+            var createdAtStr = entity.GetString("CreatedAt") ?? entity.GetString("createdAt");
+            DateTime dt = DateTime.UtcNow;
+            if (!string.IsNullOrEmpty(createdAtStr)) DateTime.TryParse(createdAtStr, out dt);
 
-                list.Add(new ContactEnquiry
-                {
-                    Id = entity.GetString("Id") ?? entity.RowKey,
-                    FullName = entity.GetString("FullName") ?? entity.GetString("fullName") ?? "",
-                    Email = entity.GetString("Email") ?? entity.GetString("email") ?? "",
-                    Phone = entity.GetString("Phone") ?? entity.GetString("phone") ?? "",
-                    Message = entity.GetString("Message") ?? entity.GetString("message") ?? "",
-                    CreatedAt = new Timestamp(dt)
-                });
+            list.Add(new ContactEnquiry
+            {
+                Id = entity.GetString("Id") ?? entity.RowKey,
+                FullName = entity.GetString("FullName") ?? entity.GetString("fullName") ?? "",
+                Email = entity.GetString("Email") ?? entity.GetString("email") ?? "",
+                Phone = entity.GetString("Phone") ?? entity.GetString("phone") ?? "",
+                Message = entity.GetString("Message") ?? entity.GetString("message") ?? "",
+                CreatedAt = new Timestamp(dt)
+            });
+        }
+        return list.OrderByDescending(e => e.CreatedAt.ToDateTime()).ToList();
+    }
+}
+
+public class NotificationStore
+{
+    private readonly AzureTableContext _context;
+    private const string TableName = "notifications";
+
+    public NotificationStore(AzureTableContext context) => _context = context;
+
+    public async Task<NotificationItem> CreateAsync(NotificationItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Title) || string.IsNullOrWhiteSpace(item.Message))
+            throw new ArgumentException("Notification title and message are required.", nameof(item));
+
+        if (string.IsNullOrWhiteSpace(item.Id))
+            item.Id = "notif-" + Guid.NewGuid().ToString("N")[..8];
+
+        var entity = new TableEntity("notification", item.Id)
+        {
+            { "Id", item.Id },
+            { "ClientId", item.ClientId },
+            { "RecipientEmail", item.RecipientEmail.Trim().ToLowerInvariant() },
+            { "Title", item.Title },
+            { "Message", item.Message },
+            { "Category", item.Category },
+            { "RelatedId", item.RelatedId },
+            { "IsRead", item.IsRead },
+            { "CreatedAt", item.CreatedAt.ToString() }
+        };
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
+        return item;
+    }
+
+    public async Task<List<NotificationItem>> ListByClientAsync(string clientId, string? email = null)
+    {
+        var list = new List<NotificationItem>();
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        foreach (var entity in entities)
+        {
+            var cid = entity.GetString("ClientId") ?? "";
+            var recEmail = entity.GetString("RecipientEmail") ?? "";
+            if ((!string.IsNullOrWhiteSpace(clientId) && cid.Equals(clientId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(email) && recEmail.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                list.Add(ToNotification(entity));
             }
         }
-        catch { }
-        return list.OrderByDescending(e => e.CreatedAt.ToDateTime()).ToList();
+        return list.OrderByDescending(n => n.CreatedAt.ToDateTime()).ToList();
+    }
+
+    public async Task<List<NotificationItem>> ListAllAsync()
+    {
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        return entities.Select(ToNotification).OrderByDescending(n => n.CreatedAt.ToDateTime()).ToList();
+    }
+
+    public async Task MarkReadAsync(string id)
+    {
+        var entity = await _context.GetEntityOrNullAsync(TableName, "notification", id);
+        if (entity != null)
+        {
+            entity["IsRead"] = true;
+            await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace);
+        }
+    }
+
+    private static NotificationItem ToNotification(TableEntity e)
+    {
+        var createdAtStr = e.GetString("CreatedAt");
+        DateTime dt = DateTime.UtcNow;
+        if (!string.IsNullOrEmpty(createdAtStr)) DateTime.TryParse(createdAtStr, out dt);
+
+        return new NotificationItem
+        {
+            Id = e.GetString("Id") ?? e.RowKey,
+            ClientId = e.GetString("ClientId") ?? "",
+            RecipientEmail = e.GetString("RecipientEmail") ?? "",
+            Title = e.GetString("Title") ?? "",
+            Message = e.GetString("Message") ?? "",
+            Category = e.GetString("Category") ?? "Booking",
+            RelatedId = e.GetString("RelatedId") ?? "",
+            IsRead = e.GetBoolean("IsRead") ?? false,
+            CreatedAt = new Timestamp(dt)
+        };
     }
 }

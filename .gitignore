@@ -361,7 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/frontend/IlyPhoto.Web/IlyPhoto.Web.csproj
-/IlyPhotoWeb/appsettings.json
+IlyPhotoWeb/appsettings.Local.json
+IlyPhotoWeb/App_Data/emails/
+IlyPhotoWeb/App_Data/sent_emails/
 
-IlyPhotoWeb/appsettings.json
+

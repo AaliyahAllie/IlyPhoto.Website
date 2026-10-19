@@ -1,29 +1,35 @@
-<header class="site-navbar" style="background-color: #1A1A1A; border-bottom: 2px solid #4A3525; position: sticky; top: 0; z-index: 100; padding: 0.75rem 0; color: #FFFFFF;">
-    <div class="container" style="display: flex; align-items: center; justify-content: space-between;">
-        <!-- Logo click navigates directly to Admin Portal Dashboard -->
+<header class="site-navbar admin-navbar" style="background-color: #1A1A1A; border-bottom: 2px solid #4A3525; position: sticky; top: 0; z-index: 100; padding: 0.75rem 0; color: #FFFFFF;">
+    <div class="container navbar-flex" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
         <a asp-controller="Admin" asp-action="Index" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
             <img src="~/images/logo.png" alt="Ily Photo - Capture Forever" style="height: 52px; object-fit: contain; background: #FAF7F2; padding: 3px; border-radius: 6px;" />
-            <span style="font-size: 0.75rem; background-color: #EAE3D2; color: #4A3525; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; letter-spacing: 0.05em;">ADMIN DASHBOARD</span>
+            <span style="font-size: 0.8rem; background-color: #EAE3D2; color: #4A3525; padding: 0.25rem 0.65rem; border-radius: 4px; font-weight: 800; letter-spacing: 0.05em;">ADMIN DASHBOARD</span>
         </a>
 
         <nav>
-            <ul style="display: flex; align-items: center; gap: 1.15rem; list-style: none; margin: 0; padding: 0;">
+            <ul style="display: flex; align-items: center; gap: 1rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap;">
                 <li><a asp-controller="Admin" asp-action="Index" class="nav-link" style="color: #FAF7F2; font-weight: 700;">Admin Stats</a></li>
-                <li><a asp-controller="Admin" asp-action="Bookings" class="nav-link" style="color: #DDD;">Bookings</a></li>
-                <li><a asp-controller="Admin" asp-action="Calendar" class="nav-link" style="color: #DDD;">Master Calendar</a></li>
-                <li><a asp-controller="Admin" asp-action="Galleries" class="nav-link" style="color: #DDD;">Upload Gallery</a></li>
-                <li><a asp-controller="Admin" asp-action="Invoices" class="nav-link" style="color: #DDD;">Invoices</a></li>
-                <li><a asp-controller="Admin" asp-action="Clients" class="nav-link" style="color: #DDD;">Clients</a></li>
-                <li><a asp-controller="Admin" asp-action="Services" class="nav-link" style="color: #DDD;">Services</a></li>
-                <li><a asp-controller="Admin" asp-action="Reviews" class="nav-link" style="color: #DDD;">Reviews</a></li>
-                <li><a href="/diagnostics" class="nav-link" style="color: #C5A059; font-size: 0.82rem; border: 1px solid #C5A059; padding: 0.2rem 0.5rem; border-radius: 4px;">Diagnostics</a></li>
+                <li><a asp-controller="Admin" asp-action="Bookings" class="nav-link" style="color: #EFEFEF;">Bookings</a></li>
+                <li><a asp-controller="Admin" asp-action="Calendar" class="nav-link" style="color: #EFEFEF;">Master Calendar</a></li>
+                <li><a asp-controller="Admin" asp-action="Galleries" class="nav-link" style="color: #EFEFEF;">Upload Gallery</a></li>
+                <li><a asp-controller="Admin" asp-action="Invoices" class="nav-link" style="color: #EFEFEF;">Invoices</a></li>
+                <li><a asp-controller="Admin" asp-action="Clients" class="nav-link" style="color: #EFEFEF;">Clients</a></li>
+                <li><a asp-controller="Admin" asp-action="Services" class="nav-link" style="color: #EFEFEF;">Services</a></li>
+                <li><a asp-controller="Admin" asp-action="Reviews" class="nav-link" style="color: #EFEFEF;">Reviews</a></li>
+                <li><a href="/diagnostics" class="nav-link" style="color: #F5CBA7; font-size: 0.88rem; border: 1px solid #C5A059; padding: 0.25rem 0.55rem; border-radius: 4px;">Diagnostics</a></li>
             </ul>
         </nav>
 
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <span style="font-size: 0.85rem; color: #EAE3D2; font-weight: 700;">🛡️ Aysha Allie</span>
+        <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+            <select aria-label="Language Selector" class="lang-selector" onchange="setLanguage(this.value)" style="padding: 0.35rem 0.5rem; border: 1px solid #C5A059; border-radius: 4px; background: #2C2C2C; color: #FAF7F2; font-size: 0.85rem; font-weight: 600;">
+                <option value="en">EN</option>
+                <option value="af">AF</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm theme-toggle-btn" onclick="toggleDarkMode()" aria-label="Toggle Dark Mode" style="padding: 0.35rem 0.65rem;">
+                🌙 Dark
+            </button>
+            <span style="font-size: 0.9rem; color: #EAE3D2; font-weight: 700;">🛡️ Aysha Allie</span>
             <form method="post" asp-controller="Account" asp-action="Logout" style="display: inline; margin: 0;">
-                <button type="submit" class="btn btn-secondary btn-sm" style="cursor: pointer;">Logout</button>
+                <button type="submit" class="btn btn-secondary btn-sm" style="cursor: pointer;" data-i18n="nav_logout">Logout</button>
             </form>
         </div>
     </div>

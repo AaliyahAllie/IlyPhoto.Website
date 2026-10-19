@@ -15,6 +15,8 @@ public class ClientController : Controller
     private readonly ServiceStore _services;
     private readonly ReviewStore _reviews;
     private readonly UserStore _users;
+    private readonly NotificationStore _notifications;
+    private readonly IEmailService _emails;
 
     public ClientController(
         BookingStore bookings,
@@ -22,7 +24,9 @@ public class ClientController : Controller
         GalleryStore galleries,
         ServiceStore services,
         ReviewStore reviews,
-        UserStore users)
+        UserStore users,
+        NotificationStore notifications,
+        IEmailService emails)
     {
         _bookings = bookings;
         _invoices = invoices;
@@ -30,20 +34,26 @@ public class ClientController : Controller
         _services = services;
         _reviews = reviews;
         _users = users;
+        _notifications = notifications;
+        _emails = emails;
     }
 
     private string ClientIdValue => User.ClientId();
+    private string UserEmailValue => User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
 
     // ---------- Dashboard ----------
     public async Task<IActionResult> Index()
     {
         var today = Format.TodayIso();
-        var bookings = await _bookings.ListByClientAsync(ClientIdValue);
-        var invoices = await _invoices.ListByClientAsync(ClientIdValue);
-        var galleries = await _galleries.ListByClientAsync(ClientIdValue);
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var email = profile?.Email ?? UserEmailValue;
+        var bookings = await _bookings.ListByClientAsync(ClientIdValue, email, User.Uid(), profile?.FullName);
+        var invoices = await _invoices.ListByClientAsync(ClientIdValue, email, User.Uid());
+        var galleries = await _galleries.ListByClientAsync(ClientIdValue, email, User.Uid());
+        var notifications = await _notifications.ListByClientAsync(ClientIdValue, email);
 
         var upcoming = bookings
-            .Where(b => (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+            .Where(b => (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Rescheduled)
                         && string.CompareOrdinal(b.Date, today) >= 0)
             .OrderBy(b => b.Date).ToList();
         var outstanding = invoices.Where(i => i.Status != InvoiceStatus.Paid).ToList();
@@ -54,26 +64,39 @@ public class ClientController : Controller
             UpcomingCount = upcoming.Count,
             OutstandingCount = outstanding.Count,
             OutstandingTotal = outstanding.Sum(i => i.Total),
-            GalleryCount = galleries.Count(g => g.PhotoCount > 0)
+            GalleryCount = galleries.Count(g => g.PhotoCount > 0),
+            Notifications = notifications.Take(8).ToList()
         });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> MarkNotificationRead(string id)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            await _notifications.MarkReadAsync(id);
+        }
+        return RedirectToAction(nameof(Index));
     }
 
     // ---------- Bookings ----------
     [HttpGet]
     public async Task<IActionResult> Bookings()
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
         var services = await _services.ListAsync();
         return View(new BookingPageViewModel
         {
             Services = services,
             Form = new BookingViewModel { EventType = services.FirstOrDefault()?.Name ?? "", Date = Format.TodaySA().AddDays(14) },
-            Mine = await _bookings.ListByClientAsync(ClientIdValue)
+            Mine = await _bookings.ListByClientAsync(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid(), profile?.FullName)
         });
     }
 
     [HttpPost]
     public async Task<IActionResult> Bookings(BookingViewModel form)
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
         var services = await _services.ListAsync();
         var service = services.FirstOrDefault(s => s.Name == form.EventType);
         var dateIso = Format.Iso(form.Date);
@@ -85,7 +108,7 @@ public class ClientController : Controller
 
         if (ModelState.IsValid)
         {
-            if (await _bookings.IsBlockedAsync(dateIso) || await _bookings.HasConfirmedOnDateAsync(dateIso))
+            if (await _bookings.HasConflictOnDateAsync(dateIso))
                 ModelState.AddModelError(nameof(form.Date), "Sorry, that date is not available. Please choose another date.");
         }
 
@@ -95,17 +118,17 @@ public class ClientController : Controller
             {
                 Form = form,
                 Services = services,
-                Mine = await _bookings.ListByClientAsync(ClientIdValue)
+                Mine = await _bookings.ListByClientAsync(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid(), profile?.FullName)
             });
         }
 
-        var profile = await _users.GetAsync(User.Uid());
-        await _bookings.CreateAsync(new Booking
+        var created = new Booking
         {
             ClientId = ClientIdValue,
             Uid = User.Uid(),
             ClientName = profile?.FullName ?? User.Identity?.Name ?? "",
-            ClientEmail = profile?.Email ?? "",
+            ClientEmail = profile?.Email ?? UserEmailValue,
+            ClientPhone = profile?.Phone ?? "",
             EventType = service!.Name,
             Date = dateIso,
             StartTime = form.StartTime,
@@ -115,20 +138,97 @@ public class ClientController : Controller
             Notes = (form.Notes ?? "").Trim(),
             Status = BookingStatus.Pending,
             EstimatedTotal = service.PriceFor(hours.Value)
-        });
+        };
+        await _bookings.CreateAsync(created);
+
+        if (profile is not null)
+        {
+            await _emails.SendBookingConfirmationEmailAsync(created, profile);
+        }
 
         TempData["BookingMessage"] = "Your booking request has been submitted to the photographer for review!";
         return RedirectToAction(nameof(Bookings));
     }
 
     [HttpPost]
+    public async Task<IActionResult> EditBooking(ClientEditBookingViewModel form)
+    {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var b = await _bookings.GetAsync(form.Id);
+        if (b is null || !b.BelongsToClient(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid(), profile?.FullName))
+        {
+            TempData["BookingError"] = "Booking could not be found.";
+            return RedirectToAction(nameof(Bookings));
+        }
+
+        if (b.Status != BookingStatus.Pending && b.Status != BookingStatus.Confirmed && b.Status != BookingStatus.Rescheduled)
+        {
+            TempData["BookingError"] = "Only active bookings can be edited or rescheduled.";
+            return RedirectToAction(nameof(Bookings));
+        }
+
+        var services = await _services.ListAsync();
+        var service = services.FirstOrDefault(s => s.Name == form.EventType) ?? services.FirstOrDefault(s => s.Name == b.EventType);
+        var hours = Format.HoursBetween(form.StartTime, form.EndTime);
+
+        if (!Format.TryParseDate(form.Date, out var parsedDate) || parsedDate.Date < Format.TodaySA())
+        {
+            TempData["BookingError"] = "Please select a valid future date.";
+            return RedirectToAction(nameof(Bookings));
+        }
+        if (hours is null)
+        {
+            TempData["BookingError"] = "The end time must be after the start time.";
+            return RedirectToAction(nameof(Bookings));
+        }
+        if (string.IsNullOrWhiteSpace(form.Location))
+        {
+            TempData["BookingError"] = "Please enter the event venue/location.";
+            return RedirectToAction(nameof(Bookings));
+        }
+        if (await _bookings.HasConflictOnDateAsync(form.Date, b.Id))
+        {
+            TempData["BookingError"] = "The selected date is already booked or blocked. Please choose another available date.";
+            return RedirectToAction(nameof(Bookings));
+        }
+
+        var total = service?.PriceFor(hours.Value) ?? b.EstimatedTotal;
+        var newStatus = b.Status == BookingStatus.Confirmed ? BookingStatus.Rescheduled : b.Status;
+        var updated = await _bookings.RescheduleAsync(
+            b.Id,
+            form.Date,
+            form.StartTime,
+            form.EndTime,
+            hours.Value,
+            total,
+            form.Location.Trim(),
+            (form.Notes ?? "").Trim(),
+            service?.Name ?? b.EventType,
+            newStatus);
+
+        if (profile is not null)
+        {
+            await _emails.SendBookingRescheduledEmailAsync(updated, profile);
+        }
+
+        TempData["BookingMessage"] = $"Booking updated to {Format.Date(form.Date)} ({form.StartTime} - {form.EndTime}) at {form.Location.Trim()}.";
+        return RedirectToAction(nameof(Bookings));
+    }
+
+    [HttpPost]
     public async Task<IActionResult> CancelBooking(string id)
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
         var b = await _bookings.GetAsync(id);
-        if (b is not null && b.ClientId == ClientIdValue
-            && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed))
+        if (b is not null && b.BelongsToClient(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid(), profile?.FullName)
+            && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Rescheduled))
         {
             await _bookings.SetStatusAsync(id, BookingStatus.Cancelled);
+            b.Status = BookingStatus.Cancelled;
+            if (profile is not null)
+            {
+                await _emails.SendBookingConfirmationEmailAsync(b, profile);
+            }
             TempData["BookingMessage"] = "Your booking request has been cancelled.";
         }
         return RedirectToAction(nameof(Bookings));
@@ -137,13 +237,13 @@ public class ClientController : Controller
     // ---------- Invoices ----------
     public async Task<IActionResult> Invoices()
     {
-        var profile = await _users.GetAsync(User.Uid());
-        var list = await _invoices.ListByClientAsync(ClientIdValue);
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var list = await _invoices.ListByClientAsync(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid());
         return View(list.Select(i => new InvoiceSheetModel
         {
             Invoice = i,
-            ClientName = profile?.FullName ?? "",
-            ClientEmail = profile?.Email ?? "",
+            ClientName = profile?.FullName ?? User.Identity?.Name ?? "",
+            ClientEmail = profile?.Email ?? UserEmailValue,
             ClientPhone = profile?.Phone ?? ""
         }).ToList());
     }
@@ -151,7 +251,8 @@ public class ClientController : Controller
     // ---------- Galleries ----------
     public async Task<IActionResult> Gallery()
     {
-        var list = await _galleries.ListByClientAsync(ClientIdValue);
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var list = await _galleries.ListByClientAsync(ClientIdValue, profile?.Email ?? UserEmailValue, User.Uid());
         return View(list.Select(g => new GalleryCardViewModel
         {
             Gallery = g,
@@ -161,8 +262,14 @@ public class ClientController : Controller
 
     public async Task<IActionResult> Album(string id)
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var email = profile?.Email ?? UserEmailValue;
         var g = await _galleries.GetAsync(id);
-        if (g is null || g.ClientId != ClientIdValue) return NotFound();
+        if (g is null || (!string.Equals(g.ClientId, ClientIdValue, StringComparison.OrdinalIgnoreCase) &&
+                          !string.Equals(g.ClientId, email, StringComparison.OrdinalIgnoreCase) &&
+                          !string.Equals(g.ClientId, User.Uid(), StringComparison.OrdinalIgnoreCase)))
+            return NotFound();
+
         return View(new AlbumViewModel
         {
             Gallery = g,
@@ -172,8 +279,13 @@ public class ClientController : Controller
 
     public async Task<IActionResult> DownloadAlbum(string id, CancellationToken ct)
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        var email = profile?.Email ?? UserEmailValue;
         var g = await _galleries.GetAsync(id);
-        if (g is null || g.ClientId != ClientIdValue) return NotFound();
+        if (g is null || (!string.Equals(g.ClientId, ClientIdValue, StringComparison.OrdinalIgnoreCase) &&
+                          !string.Equals(g.ClientId, email, StringComparison.OrdinalIgnoreCase) &&
+                          !string.Equals(g.ClientId, User.Uid(), StringComparison.OrdinalIgnoreCase)))
+            return NotFound();
 
         var bodyControl = HttpContext.Features.Get<IHttpBodyControlFeature>();
         if (bodyControl is not null) bodyControl.AllowSynchronousIO = true;
@@ -186,23 +298,27 @@ public class ClientController : Controller
 
     // ---------- Reviews ----------
     [HttpGet]
-    public async Task<IActionResult> Reviews() => View(await _reviews.ListByClientAsync(ClientIdValue));
+    public async Task<IActionResult> Reviews()
+    {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
+        return View(await _reviews.ListByClientAsync(ClientIdValue, profile?.FullName ?? User.Identity?.Name));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Reviews(int rating, string? review)
     {
+        var profile = await _users.GetAsync(User.Uid()) ?? await _users.GetByEmailAsync(UserEmailValue);
         review = (review ?? "").Trim();
         if (rating < 1 || rating > 5) ModelState.AddModelError("", "Please choose a rating from 1 to 5 stars.");
         if (review.Length == 0) ModelState.AddModelError("", "Please enter your review comments.");
         if (review.Length > 2000) ModelState.AddModelError("", "Review is too long (maximum 2000 characters).");
 
-        if (!ModelState.IsValid) return View(await _reviews.ListByClientAsync(ClientIdValue));
+        if (!ModelState.IsValid) return View(await _reviews.ListByClientAsync(ClientIdValue, profile?.FullName ?? User.Identity?.Name));
 
-        var profile = await _users.GetAsync(User.Uid());
         await _reviews.CreateAsync(new Review
         {
             ClientId = ClientIdValue,
-            ClientName = profile?.FullName ?? "",
+            ClientName = profile?.FullName ?? User.Identity?.Name ?? "",
             Rating = rating,
             Text = review,
             Approved = true

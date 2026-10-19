@@ -11,46 +11,42 @@ public class GalleryStore
     private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
     public const long MaxPhotoBytes = 50L * 1024 * 1024;   // 50 MB per photo
 
-    private readonly TableClient _table;
+    private readonly AzureTableContext _context;
     private readonly IPhotoStorage _photos;
+    private readonly AzureCloudSyncService? _cloudSync;
+    private const string TableName = "galleries";
 
-    public GalleryStore(AzureTableContext context, IPhotoStorage photos)
+    public GalleryStore(AzureTableContext context, IPhotoStorage photos, AzureCloudSyncService? cloudSync = null)
     {
-        _table = context.Galleries;
+        _context = context;
         _photos = photos;
+        _cloudSync = cloudSync;
     }
 
     public async Task<Gallery?> GetAsync(string id)
     {
-        try
-        {
-            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("gallery", id);
-            return entity.HasValue && entity.Value != null ? ToGallery(entity.Value) : null;
-        }
-        catch
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entity = await _context.GetEntityOrNullAsync(TableName, "gallery", id);
+        return entity != null ? ToGallery(entity) : null;
     }
 
     public async Task<List<Gallery>> ListAllAsync()
     {
-        var list = new List<Gallery>();
-        try
-        {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                list.Add(ToGallery(entity));
-            }
-        }
-        catch { }
+        if (_cloudSync != null) await _cloudSync.EnsureSyncedAsync();
+        var entities = await _context.QueryAllEntitiesAsync(TableName);
+        var list = entities.Select(ToGallery).ToList();
         return Sort(list);
     }
 
-    public async Task<List<Gallery>> ListByClientAsync(string clientId)
+    public async Task<List<Gallery>> ListByClientAsync(string clientId, string? email = null, string? uid = null)
     {
         var all = await ListAllAsync();
-        return all.Where(g => string.Equals(g.ClientId, clientId, StringComparison.OrdinalIgnoreCase)).ToList();
+        return all.Where(g =>
+            (!string.IsNullOrWhiteSpace(clientId) && string.Equals(g.ClientId, clientId, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(email) && (string.Equals(g.ClientId, email.Trim(), StringComparison.OrdinalIgnoreCase) || g.Title.Contains(email.Trim(), StringComparison.OrdinalIgnoreCase))) ||
+            (!string.IsNullOrWhiteSpace(uid) && string.Equals(g.ClientId, uid, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
     }
 
     public async Task<List<Gallery>> ListPortfolioAsync()
@@ -100,7 +96,7 @@ public class GalleryStore
             { "PortfolioApproved", gallery.PortfolioApproved },
             { "CreatedAt", gallery.CreatedAt.ToString() }
         };
-        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace, ct);
+        await _context.UpsertAsync(TableName, entity, TableUpdateMode.Replace, ct);
 
         return (gallery, skipped);
     }
@@ -111,11 +107,7 @@ public class GalleryStore
         {
             await _photos.DeleteAsync(path, CancellationToken.None);
         }
-        try
-        {
-            await _table.DeleteEntityAsync("gallery", g.Id);
-        }
-        catch { }
+        await _context.DeleteAsync(TableName, "gallery", g.Id);
     }
 
     /// <summary>Short-lived signed private link to one photo.</summary>

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch IlyPhotoWeb (MVC + REST API)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}/run.ps1\"",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Launch IlyPhoto.Api (Minimal API Microservice)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -Command \"$sdk = if (Test-Path '$env:LOCALAPPDATA\\Microsoft\\dotnet\\dotnet.exe') { '$env:LOCALAPPDATA\\Microsoft\\dotnet\\dotnet.exe' } else { 'dotnet' }; & $sdk run --project backend/IlyPhoto.Api/IlyPhoto.Api.csproj --urls http://localhost:5233\"",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run All Tests (xUnit Suite)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}/test.ps1\"",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

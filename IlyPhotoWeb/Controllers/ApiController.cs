@@ -13,26 +13,38 @@ public class ApiController : ControllerBase
     private readonly AuthService _auth;
     private readonly UserStore _userStore;
     private readonly BookingStore _bookingStore;
+    private readonly InvoiceStore _invoiceStore;
+    private readonly ServiceStore _serviceStore;
     private readonly GalleryStore _galleryStore;
     private readonly ReviewStore _reviewStore;
     private readonly EnquiryStore _enquiryStore;
+    private readonly NotificationStore _notificationStore;
+    private readonly IEmailService _emailService;
     private readonly IPhotoStorage _storage;
 
     public ApiController(
         AuthService auth,
         UserStore userStore,
         BookingStore bookingStore,
+        InvoiceStore invoiceStore,
+        ServiceStore serviceStore,
         GalleryStore galleryStore,
         ReviewStore reviewStore,
         EnquiryStore enquiryStore,
+        NotificationStore notificationStore,
+        IEmailService emailService,
         IPhotoStorage storage)
     {
         _auth = auth;
         _userStore = userStore;
         _bookingStore = bookingStore;
+        _invoiceStore = invoiceStore;
+        _serviceStore = serviceStore;
         _galleryStore = galleryStore;
         _reviewStore = reviewStore;
         _enquiryStore = enquiryStore;
+        _notificationStore = notificationStore;
+        _emailService = emailService;
         _storage = storage;
     }
 
@@ -83,16 +95,24 @@ public class ApiController : ControllerBase
         }
 
         var profile = result.Profile;
-        if (!string.IsNullOrWhiteSpace(req.Role) && req.Role.Equals("photographer", StringComparison.OrdinalIgnoreCase))
-        {
-            profile.Role = Roles.Admin;
-            await _userStore.SaveAsync(profile);
-        }
-
         return Ok(new
         {
             token = profile.Id,
             user = ToUserJson(profile)
+        });
+    }
+
+    [HttpGet("auth/register")]
+    public async Task<IActionResult> RegisterGet([FromQuery] string? email, [FromQuery] string? password, [FromQuery] string? fullName, [FromQuery] string? displayName, [FromQuery] string? phone, [FromQuery] string? role)
+    {
+        return await Register(new RegisterRequest
+        {
+            Email = email ?? "",
+            Password = password ?? "",
+            FullName = fullName ?? displayName,
+            DisplayName = displayName ?? fullName,
+            Phone = phone,
+            Role = role
         });
     }
 
@@ -117,6 +137,12 @@ public class ApiController : ControllerBase
             token = result.Profile.Id,
             user = ToUserJson(result.Profile)
         });
+    }
+
+    [HttpGet("auth/login")]
+    public async Task<IActionResult> LoginGet([FromQuery] string? email, [FromQuery] string? password)
+    {
+        return await Login(new LoginRequest { Email = email ?? "", Password = password ?? "" });
     }
 
     [HttpGet("auth/me")]
@@ -148,16 +174,12 @@ public class ApiController : ControllerBase
         var user = await GetAuthenticatedUserAsync();
         if (user == null) return Unauthorized(new { error = "Not authenticated" });
 
-        if (!string.IsNullOrWhiteSpace(req.DisplayName)) user.FullName = req.DisplayName;
-        else if (!string.IsNullOrWhiteSpace(req.FullName)) user.FullName = req.FullName;
+        if (!string.IsNullOrWhiteSpace(req.DisplayName)) user.FullName = req.DisplayName.Trim();
+        else if (!string.IsNullOrWhiteSpace(req.FullName)) user.FullName = req.FullName.Trim();
 
-        if (req.Phone != null) user.Phone = req.Phone;
-        if (req.Address != null) user.Address = req.Address;
-        if (req.PhotoUrl != null) user.PhotoUrl = req.PhotoUrl;
-        if (!string.IsNullOrWhiteSpace(req.Role))
-        {
-            user.Role = req.Role.Equals("photographer", StringComparison.OrdinalIgnoreCase) ? Roles.Admin : Roles.Client;
-        }
+        if (req.Phone != null) user.Phone = req.Phone.Trim();
+        if (req.Address != null) user.Address = req.Address.Trim();
+        if (req.PhotoUrl != null) user.PhotoUrl = req.PhotoUrl.Trim();
 
         await _userStore.SaveAsync(user);
         return Ok(new
@@ -169,12 +191,23 @@ public class ApiController : ControllerBase
     public class ResetPasswordRequest
     {
         public string Email { get; set; } = "";
+        public string? NewPassword { get; set; }
     }
 
     [HttpPost("auth/reset-password")]
-    public IActionResult ResetPassword([FromBody] ResetPasswordRequest req)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
     {
-        return Ok(new { ok = true, message = "If the account exists, a reset link has been sent." });
+        var result = await _auth.ResetPasswordAsync(req?.Email ?? "", req?.NewPassword);
+        if (!result.Ok)
+        {
+            return BadRequest(new { ok = false, error = result.Error ?? "Password recovery failed." });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            message = "Password recovery verified and notification dispatched to your registered email."
+        });
     }
 
     // -------------------------------------------------------------
@@ -196,6 +229,20 @@ public class ApiController : ControllerBase
             {
                 bookings = await _bookingStore.ListByClientAsync(user.Id);
             }
+            if (bookings.Count == 0 && !string.IsNullOrWhiteSpace(user.Email))
+            {
+                bookings = await _bookingStore.ListByClientAsync(user.Email);
+            }
+            if (bookings.Count == 0)
+            {
+                var all = await _bookingStore.ListAllAsync();
+                bookings = all.Where(b =>
+                    (!string.IsNullOrWhiteSpace(user.ClientId) && string.Equals(b.ClientId, user.ClientId, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(user.Id) && string.Equals(b.ClientId, user.Id, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(user.Email) && (string.Equals(b.ClientId, user.Email, StringComparison.OrdinalIgnoreCase) || string.Equals(b.ClientEmail, user.Email, StringComparison.OrdinalIgnoreCase))) ||
+                    (!string.IsNullOrWhiteSpace(user.FullName) && string.Equals(b.ClientName, user.FullName, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+            }
         }
         else
         {
@@ -212,10 +259,12 @@ public class ApiController : ControllerBase
         public string? ClientEmail { get; set; }
         public string? ClientPhone { get; set; }
         public string? ServiceName { get; set; }
-        public int? ServicePrice { get; set; }
+        public string? EventType { get; set; }
+        public double? ServicePrice { get; set; }
         public int? DurationHours { get; set; }
         public string? EventDate { get; set; }
         public string? EventTime { get; set; }
+        public string? EndTime { get; set; }
         public string? EventLocation { get; set; }
         public string? Requirements { get; set; }
         public string? Status { get; set; }
@@ -226,11 +275,28 @@ public class ApiController : ControllerBase
     [HttpPost("bookings")]
     public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest req)
     {
+        var eventDate = (req.EventDate ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(eventDate))
+        {
+            return BadRequest(new { error = "Event date is required." });
+        }
+
+        if (await _bookingStore.HasConflictOnDateAsync(eventDate))
+        {
+            return Conflict(new { error = "The selected date is unavailable or already has a confirmed booking." });
+        }
+
         var user = await GetAuthenticatedUserAsync();
         var clientId = !string.IsNullOrWhiteSpace(req.ClientId) ? req.ClientId : (user?.ClientId ?? user?.Id ?? "CL-GUEST");
         var clientName = !string.IsNullOrWhiteSpace(req.ClientName) ? req.ClientName : (user?.FullName ?? "Client");
         var clientEmail = !string.IsNullOrWhiteSpace(req.ClientEmail) ? req.ClientEmail : (user?.Email ?? "");
         var clientPhone = !string.IsNullOrWhiteSpace(req.ClientPhone) ? req.ClientPhone : (user?.Phone ?? "");
+
+        var startTime = !string.IsNullOrWhiteSpace(req.EventTime) ? req.EventTime.Trim() : "10:00";
+        var hours = Math.Max(1, req.DurationHours ?? 2);
+        var endTime = !string.IsNullOrWhiteSpace(req.EndTime)
+            ? req.EndTime.Trim()
+            : ComputeEndTime(startTime, hours);
 
         var booking = new Booking
         {
@@ -240,13 +306,13 @@ public class ApiController : ControllerBase
             ClientName = clientName,
             ClientEmail = clientEmail,
             ClientPhone = clientPhone,
-            EventType = req.ServiceName ?? "Photography Session",
-            Date = req.EventDate ?? DateTime.UtcNow.ToString("yyyy-MM-dd"),
-            StartTime = req.EventTime ?? "10:00",
-            EndTime = "12:00",
-            Hours = req.DurationHours ?? 1,
-            Location = req.EventLocation ?? "TBD",
-            Notes = req.Requirements ?? "",
+            EventType = !string.IsNullOrWhiteSpace(req.ServiceName) ? req.ServiceName : (req.EventType ?? "Photography Session"),
+            Date = eventDate,
+            StartTime = startTime,
+            EndTime = endTime,
+            Hours = hours,
+            Location = !string.IsNullOrWhiteSpace(req.EventLocation) ? req.EventLocation.Trim() : "Cape Town",
+            Notes = (req.Requirements ?? "").Trim(),
             Status = !string.IsNullOrWhiteSpace(req.Status) ? req.Status : BookingStatus.Pending,
             EstimatedTotal = req.ServicePrice ?? 1000,
             InvoiceNumber = req.InvoiceNumber ?? ("INV-" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()),
@@ -255,22 +321,193 @@ public class ApiController : ControllerBase
         };
 
         await _bookingStore.CreateAsync(booking);
+
+        var recipient = user ?? new UserProfile
+        {
+            ClientId = clientId,
+            FullName = clientName,
+            Email = clientEmail,
+            Phone = clientPhone
+        };
+        await _emailService.SendBookingConfirmationEmailAsync(booking, recipient);
+
         return Ok(new { booking = ToBookingJson(booking) });
     }
 
-    public class StatusRequest
+    public class UpdateBookingRequest
     {
-        public string Status { get; set; } = "";
+        public string? Status { get; set; }
+        public string? EventDate { get; set; }
+        public string? Date { get; set; }
+        public string? EventTime { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
+        public string? EventLocation { get; set; }
+        public string? Location { get; set; }
+        public string? ServiceName { get; set; }
+        public string? EventType { get; set; }
+        public double? ServicePrice { get; set; }
+        public double? EstimatedTotal { get; set; }
+        public int? DurationHours { get; set; }
+        public int? Hours { get; set; }
+        public string? Requirements { get; set; }
+        public string? Notes { get; set; }
+        public string? ClientPhone { get; set; }
+        public string? InvoiceStatus { get; set; }
     }
 
+    [HttpPut("bookings/{id}")]
+    public Task<IActionResult> UpdateBooking(string id, [FromBody] UpdateBookingRequest req) =>
+        ApplyBookingUpdateAsync(id, req);
+
     [HttpPatch("bookings/{id}/status")]
-    public async Task<IActionResult> UpdateStatus(string id, [FromBody] StatusRequest req)
+    public Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateBookingRequest req) =>
+        ApplyBookingUpdateAsync(id, req);
+
+    private async Task<IActionResult> ApplyBookingUpdateAsync(string id, UpdateBookingRequest req)
     {
         var booking = await _bookingStore.GetAsync(id);
         if (booking == null) return NotFound(new { error = "Booking not found" });
 
-        booking.Status = req.Status;
-        await _bookingStore.CreateAsync(booking);
+        var newDate = !string.IsNullOrWhiteSpace(req.EventDate) ? req.EventDate.Trim()
+            : (!string.IsNullOrWhiteSpace(req.Date) ? req.Date.Trim() : null);
+
+        var newStart = !string.IsNullOrWhiteSpace(req.EventTime) ? req.EventTime.Trim()
+            : (!string.IsNullOrWhiteSpace(req.StartTime) ? req.StartTime.Trim() : null);
+
+        var newEnd = !string.IsNullOrWhiteSpace(req.EndTime) ? req.EndTime.Trim() : null;
+
+        var newLocation = !string.IsNullOrWhiteSpace(req.EventLocation) ? req.EventLocation.Trim()
+            : (!string.IsNullOrWhiteSpace(req.Location) ? req.Location.Trim() : null);
+
+        var newService = !string.IsNullOrWhiteSpace(req.ServiceName) ? req.ServiceName.Trim()
+            : (!string.IsNullOrWhiteSpace(req.EventType) ? req.EventType.Trim() : null);
+
+        var newHours = req.DurationHours ?? req.Hours;
+        var newPrice = req.ServicePrice ?? req.EstimatedTotal;
+        var newNotes = req.Requirements ?? req.Notes;
+
+        bool detailsAmended = false;
+
+        if (!string.IsNullOrWhiteSpace(newDate) && newDate != booking.Date)
+        {
+            if (await _bookingStore.HasConflictOnDateAsync(newDate, booking.Id))
+            {
+                return Conflict(new { error = "The target reschedule date is unavailable or already booked." });
+            }
+            booking.Date = newDate;
+            detailsAmended = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newStart) && newStart != booking.StartTime)
+        {
+            booking.StartTime = newStart;
+            detailsAmended = true;
+        }
+
+        if (newHours.HasValue && newHours.Value > 0)
+        {
+            booking.Hours = newHours.Value;
+            detailsAmended = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newEnd))
+        {
+            booking.EndTime = newEnd;
+            var computed = Format.HoursBetween(booking.StartTime, booking.EndTime);
+            if (computed.HasValue && !newHours.HasValue) booking.Hours = computed.Value;
+            detailsAmended = true;
+        }
+        else if (detailsAmended)
+        {
+            booking.EndTime = ComputeEndTime(booking.StartTime, booking.Hours);
+        }
+
+        if (!string.IsNullOrWhiteSpace(newLocation))
+        {
+            booking.Location = newLocation;
+            detailsAmended = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(newService))
+        {
+            booking.EventType = newService;
+            detailsAmended = true;
+        }
+
+        if (newPrice.HasValue && newPrice.Value >= 0)
+        {
+            booking.EstimatedTotal = newPrice.Value;
+            detailsAmended = true;
+        }
+
+        if (newNotes != null)
+        {
+            booking.Notes = newNotes.Trim();
+            detailsAmended = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.ClientPhone))
+        {
+            booking.ClientPhone = req.ClientPhone.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.InvoiceStatus))
+        {
+            booking.InvoiceStatus = req.InvoiceStatus.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.Status))
+        {
+            booking.Status = req.Status.Trim();
+        }
+
+        // Auto-generate invoice if booking is confirmed and no invoice record exists yet
+        if (string.Equals(booking.Status, BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase))
+        {
+            var existingInvoices = await _invoiceStore.ListByClientAsync(booking.ClientId);
+            var linked = existingInvoices.FirstOrDefault(i => i.BookingId == booking.Id);
+            if (linked == null)
+            {
+                var inv = await _invoiceStore.CreateAsync(new Invoice
+                {
+                    ClientId = booking.ClientId,
+                    BookingId = booking.Id,
+                    BookingLabel = booking.Label,
+                    IssueDate = Format.TodayIso(),
+                    DueDate = booking.Date,
+                    Service = $"{booking.EventType} ({booking.Hours}h coverage at {booking.Location})",
+                    Quantity = 1,
+                    Price = booking.EstimatedTotal > 0 ? booking.EstimatedTotal : 1000,
+                    Status = InvoiceStatus.Unpaid,
+                    EmailSent = true
+                });
+                booking.InvoiceNumber = inv.InvoiceNo;
+                booking.InvoiceStatus = inv.Status;
+            }
+        }
+
+        await _bookingStore.UpdateBookingAsync(booking);
+
+        var client = await _userStore.GetByClientIdAsync(booking.ClientId)
+            ?? (!string.IsNullOrWhiteSpace(booking.ClientEmail) ? await _userStore.GetByEmailAsync(booking.ClientEmail) : null)
+            ?? new UserProfile
+            {
+                ClientId = booking.ClientId,
+                FullName = booking.ClientName,
+                Email = booking.ClientEmail,
+                Phone = booking.ClientPhone
+            };
+
+        if (detailsAmended || string.Equals(booking.Status, BookingStatus.Rescheduled, StringComparison.OrdinalIgnoreCase))
+        {
+            await _emailService.SendBookingRescheduledEmailAsync(booking, client);
+        }
+        else
+        {
+            await _emailService.SendBookingConfirmationEmailAsync(booking, client);
+        }
+
         return Ok(new { booking = ToBookingJson(booking) });
     }
 
@@ -286,8 +523,52 @@ public class ApiController : ControllerBase
         if (booking == null) return NotFound(new { error = "Booking not found" });
 
         booking.InvoiceStatus = req.InvoiceStatus;
-        await _bookingStore.CreateAsync(booking);
+        await _bookingStore.UpdateBookingAsync(booking);
         return Ok(new { booking = ToBookingJson(booking) });
+    }
+
+    // -------------------------------------------------------------
+    // Invoices, Services & Notifications Endpoints
+    // -------------------------------------------------------------
+    [HttpGet("invoices")]
+    public async Task<IActionResult> GetInvoices([FromQuery] string? clientId = null)
+    {
+        var user = await GetAuthenticatedUserAsync();
+        List<Invoice> list;
+        if (!string.IsNullOrWhiteSpace(clientId))
+        {
+            list = await _invoiceStore.ListByClientAsync(clientId);
+        }
+        else if (user != null && user.Role != Roles.Admin && user.Role != Roles.Photographer)
+        {
+            list = await _invoiceStore.ListByClientAsync(user.ClientId);
+        }
+        else
+        {
+            list = await _invoiceStore.ListAllAsync();
+        }
+        return Ok(list);
+    }
+
+    [HttpGet("services")]
+    public async Task<IActionResult> GetServices()
+    {
+        var list = await _serviceStore.ListAsync();
+        return Ok(list);
+    }
+
+    [HttpGet("notifications")]
+    public async Task<IActionResult> GetNotifications([FromQuery] string? clientId = null, [FromQuery] string? email = null)
+    {
+        var user = await GetAuthenticatedUserAsync();
+        var cid = !string.IsNullOrWhiteSpace(clientId) ? clientId : (user?.ClientId ?? "");
+        var em = !string.IsNullOrWhiteSpace(email) ? email : (user?.Email ?? "");
+        if (!string.IsNullOrWhiteSpace(cid) || !string.IsNullOrWhiteSpace(em))
+        {
+            var items = await _notificationStore.ListByClientAsync(cid, em);
+            return Ok(items);
+        }
+        return Ok(await _notificationStore.ListAllAsync());
     }
 
     // -------------------------------------------------------------
@@ -391,13 +672,18 @@ public class ApiController : ControllerBase
     [HttpPost("enquiries")]
     public async Task<IActionResult> CreateEnquiry([FromBody] EnquiryRequest req)
     {
+        if (string.IsNullOrWhiteSpace(req?.FullName) || string.IsNullOrWhiteSpace(req?.Email) || string.IsNullOrWhiteSpace(req?.Message))
+        {
+            return BadRequest(new { error = "FullName, Email, and Message are required." });
+        }
+
         var enquiry = new ContactEnquiry
         {
             Id = "enq-" + Guid.NewGuid().ToString("N")[..8],
-            FullName = req.FullName ?? "Anonymous",
-            Email = req.Email ?? "",
-            Phone = req.Phone ?? "",
-            Message = req.Message ?? "",
+            FullName = req.FullName.Trim(),
+            Email = req.Email.Trim(),
+            Phone = (req.Phone ?? "").Trim(),
+            Message = req.Message.Trim(),
             CreatedAt = Timestamp.GetCurrentTimestamp()
         };
         await _enquiryStore.CreateAsync(enquiry);
@@ -446,14 +732,19 @@ public class ApiController : ControllerBase
     [HttpPost("reviews")]
     public async Task<IActionResult> CreateReview([FromBody] ReviewRequest req)
     {
+        if (string.IsNullOrWhiteSpace(req?.Text))
+        {
+            return BadRequest(new { error = "Review text is required." });
+        }
+
         var user = await GetAuthenticatedUserAsync();
         var review = new Review
         {
             Id = "rev-" + Guid.NewGuid().ToString("N")[..8],
             ClientId = req.ClientId ?? user?.ClientId ?? "GUEST",
             ClientName = req.ClientName ?? user?.FullName ?? "Client",
-            Rating = req.Rating ?? 5,
-            Text = req.Text ?? "",
+            Rating = Math.Clamp(req.Rating ?? 5, 1, 5),
+            Text = req.Text.Trim(),
             Approved = true,
             CreatedAt = Timestamp.GetCurrentTimestamp()
         };
@@ -476,26 +767,28 @@ public class ApiController : ControllerBase
     // -------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------
+    private static string ComputeEndTime(string startTime, int hours)
+    {
+        if (Format.TryParseTime(startTime, out var ts))
+        {
+            var end = ts.Add(TimeSpan.FromHours(Math.Max(1, hours)));
+            if (end.TotalHours >= 24) return "23:59";
+            return $"{(int)end.TotalHours:D2}:{end.Minutes:D2}";
+        }
+        return "12:00";
+    }
+
     private static object ToUserJson(UserProfile p) => new
     {
         uid = p.Id,
-        id = p.Id,
-        Id = p.Id,
         displayName = p.FullName,
         fullName = p.FullName,
-        FullName = p.FullName,
         email = p.Email,
-        Email = p.Email,
         phone = p.Phone,
-        Phone = p.Phone,
         address = p.Address,
-        Address = p.Address,
         photoUrl = p.PhotoUrl,
-        PhotoUrl = p.PhotoUrl,
         role = p.Role.ToLowerInvariant(),
-        Role = p.Role,
-        clientId = p.ClientId,
-        ClientId = p.ClientId
+        clientId = p.ClientId
     };
 
     private static object ToBookingJson(Booking b) => new
@@ -510,6 +803,7 @@ public class ApiController : ControllerBase
         durationHours = b.Hours,
         eventDate = b.Date,
         eventTime = b.StartTime,
+        endTime = b.EndTime,
         eventLocation = b.Location,
         requirements = b.Notes,
         status = b.Status,

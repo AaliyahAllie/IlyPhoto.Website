@@ -4,40 +4,50 @@
 }
 
 <section class="auth-wrap" style="padding: 3rem 1rem; min-height: 75vh; display: flex; align-items: center; justify-content: center;">
-  <div class="card" style="max-width: 440px; width: 100%; padding: 2.5rem; background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+  <div class="card" style="max-width: 460px; width: 100%; padding: 2.5rem; background: var(--card-bg, #FFFFFF); border: 1px solid #D1C7B7; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
     <div style="text-align: center; margin-bottom: 1.5rem;">
       <img src="~/images/logo.png" alt="ILY PHOTO" style="height: 60px; object-fit: contain; margin-bottom: 0.5rem;"/>
-      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">CLIENT & PHOTOGRAPHER PORTAL</p>
-      <h1 style="font-size: 1.8rem; font-weight: 700; color: #1A1A1A; margin: 0.5rem 0 0 0;">Welcome Back</h1>
+      <p style="font-size: 0.85rem; letter-spacing: 0.1em; color: #4A3525; text-transform: uppercase; font-weight: 700; margin: 0;" data-i18n="portal_subtitle">CLIENT &amp; PHOTOGRAPHER PORTAL</p>
+      <h1 style="font-size: 1.9rem; font-weight: 700; color: #1A1A1A; margin: 0.5rem 0 0 0;" data-i18n="welcome_back">Welcome Back</h1>
     </div>
 
-    <div asp-validation-summary="All" class="form-errors" style="color: #A93226; font-size: 0.88rem; margin-bottom: 1rem;"></div>
+    @if (TempData["LoginSuccess"] is string msg)
+    {
+      <div class="notice flash" style="background: #E8F8F5; border-left: 4px solid #0E6251; color: #0E6251; padding: 0.85rem 1rem; border-radius: 4px; margin-bottom: 1rem; font-size: 0.92rem; font-weight: 600;">
+        @msg
+      </div>
+    }
+
+    <div asp-validation-summary="All" class="form-errors" style="color: #922B21; font-size: 0.92rem; font-weight: 600; margin-bottom: 1rem;"></div>
 
     <form method="post" asp-controller="Account" asp-action="Login">
       <input type="hidden" asp-for="ReturnUrl" />
       <div class="form-group" style="margin-bottom: 1.25rem;">
-        <label asp-for="Email" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; color: #4A3525;">Email Address</label>
-        <input asp-for="Email" type="email" required autocomplete="username" class="form-control" placeholder="client@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.95rem;"/>
+        <label asp-for="Email" style="display: block; font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; color: #2C1E14;" data-i18n="email_label">Email Address</label>
+        <input asp-for="Email" type="email" required autocomplete="username" class="form-control" placeholder="client@example.com" style="width: 100%; padding: 0.8rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 1rem; color: #1A1A1A;"/>
       </div>
 
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label asp-for="Password" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; color: #4A3525;">Password</label>
-        <input asp-for="Password" id="passwordField" type="password" required autocomplete="current-password" class="form-control" placeholder="••••••••" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.95rem;"/>
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label asp-for="Password" style="font-size: 0.95rem; font-weight: 700; color: #2C1E14; margin: 0;" data-i18n="password_label">Password</label>
+          <a asp-action="ForgotPassword" style="font-size: 0.88rem; font-weight: 700; color: #4A3525; text-decoration: underline;" data-i18n="forgot_password">Forgot password?</a>
+        </div>
+        <input asp-for="Password" id="passwordField" type="password" required autocomplete="current-password" class="form-control" placeholder="••••••••" style="width: 100%; padding: 0.8rem; border: 1px solid #8C7A6B; border-radius: 4px; font-size: 1rem; color: #1A1A1A;"/>
       </div>
 
-      <div style="margin-bottom: 1.25rem; background: #FAF7F2; padding: 0.75rem; border-radius: 6px; border: 1px dashed #D1C7B7;">
-        <p style="font-size: 0.75rem; font-weight: 700; color: #7A6B5D; margin: 0 0 0.4rem 0; text-transform: uppercase;">Default Administrator Logins:</p>
+      <div style="margin-bottom: 1.25rem; background: #F5EFE6; padding: 0.85rem; border-radius: 6px; border: 1px solid #C5B8A5;">
+        <p style="font-size: 0.82rem; font-weight: 700; color: #2C1E14; margin: 0 0 0.5rem 0; text-transform: uppercase;">Quick Demo Accounts:</p>
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button type="button" onclick="setAdmin('admin@ilyphoto.co.za')" style="font-size: 0.75rem; background: #EFE7DA; border: 1px solid #D1C7B7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: #4A3525; font-weight: 600;">
+          <button type="button" onclick="setAdmin('admin@ilyphoto.co.za')" style="font-size: 0.82rem; background: #FFFFFF; border: 1px solid #4A3525; border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer; color: #2C1E14; font-weight: 700;">
             admin@ilyphoto.co.za
           </button>
-          <button type="button" onclick="setAdmin('ayshaallie23@gmail.com')" style="font-size: 0.75rem; background: #EFE7DA; border: 1px solid #D1C7B7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: #4A3525; font-weight: 600;">
+          <button type="button" onclick="setAdmin('ayshaallie23@gmail.com')" style="font-size: 0.82rem; background: #FFFFFF; border: 1px solid #4A3525; border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer; color: #2C1E14; font-weight: 700;">
             ayshaallie23@gmail.com
           </button>
         </div>
       </div>
 
-      <button class="btn btn-primary btn-block" type="submit" style="width: 100%; padding: 0.85rem; font-size: 1rem; font-weight: 700; cursor: pointer;">Sign In</button>
+      <button class="btn btn-primary btn-block" type="submit" style="width: 100%; padding: 0.9rem; font-size: 1rem; font-weight: 700; cursor: pointer;" data-i18n="sign_in_btn">Sign In</button>
     </form>
 
     <script>
@@ -47,7 +57,7 @@
       }
     </script>
 
-    <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #ECE4D8; padding-top: 1.25rem; font-size: 0.88rem; color: #666;">
+    <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #D1C7B7; padding-top: 1.25rem; font-size: 0.95rem; color: #2C2C2C;">
       Don't have an account yet? <a asp-action="Register" style="color: #4A3525; font-weight: 700; text-decoration: underline;">Create Client Account</a>
     </div>
   </div>

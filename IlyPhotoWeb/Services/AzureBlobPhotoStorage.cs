@@ -14,16 +14,19 @@ public class AzureBlobPhotoStorage : IPhotoStorage
 {
     private readonly BlobContainerClient? _containerClient;
     private readonly LocalDiskPhotoStorage _localFallback;
+    private readonly AzureCloudSyncService? _cloudSync;
     private readonly ILogger<AzureBlobPhotoStorage> _logger;
     private readonly bool _isConfigured;
 
     public AzureBlobPhotoStorage(
         IOptions<AzureStorageOptions> azureOptions,
         LocalDiskPhotoStorage localFallback,
-        ILogger<AzureBlobPhotoStorage> logger)
+        ILogger<AzureBlobPhotoStorage> logger,
+        AzureCloudSyncService? cloudSync = null)
     {
         _localFallback = localFallback;
         _logger = logger;
+        _cloudSync = cloudSync;
         var opts = azureOptions.Value;
 
         if (!string.IsNullOrWhiteSpace(opts.ConnectionString))
@@ -39,7 +42,7 @@ public class AzureBlobPhotoStorage : IPhotoStorage
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to initialize Azure Blob Storage. Falling back to local disk storage.");
+                _logger.LogWarning(ex, "Failed to initialize Azure Blob Storage. Falling back to cloud sync / local disk storage.");
                 _isConfigured = false;
             }
         }
@@ -96,6 +99,16 @@ public class AzureBlobPhotoStorage : IPhotoStorage
             }
         }
 
+        if (_cloudSync != null && _cloudSync.IsEnabled)
+        {
+            await using var remoteStream = await _cloudSync.DownloadRemotePhotoStreamAsync(objectName, ct);
+            if (remoteStream != null)
+            {
+                await remoteStream.CopyToAsync(destination, ct);
+                return;
+            }
+        }
+
         await _localFallback.DownloadToAsync(objectName, destination, ct);
     }
 
@@ -143,6 +156,11 @@ public class AzureBlobPhotoStorage : IPhotoStorage
             }
         }
 
+        if (_cloudSync != null && _cloudSync.TryGetRemotePhotoUrl(objectName, out var remoteSasUrl))
+        {
+            return remoteSasUrl;
+        }
+
         // Proxy through MediaController with signed HMAC token
         return _localFallback.GetReadUrl(objectName, lifetime);
     }
@@ -164,6 +182,12 @@ public class AzureBlobPhotoStorage : IPhotoStorage
             {
                 _logger.LogWarning(ex, "Error reading from Azure Blob: {ObjectName}", objectName);
             }
+        }
+
+        if (_cloudSync != null && _cloudSync.IsEnabled)
+        {
+            var remoteStream = await _cloudSync.DownloadRemotePhotoStreamAsync(objectName, ct);
+            if (remoteStream != null) return remoteStream;
         }
 
         return _localFallback.OpenRead(objectName);
