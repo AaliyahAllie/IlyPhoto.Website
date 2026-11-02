@@ -1,0 +1,43 @@
+name: IlyPhoto CI/CD Pipeline & DevOps Automation
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package Web App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore NuGet Packages
+        run: dotnet restore IlyPhoto.sln
+
+      - name: Build Solution (Release)
+        run: dotnet build IlyPhoto.sln --configuration Release --no-restore
+
+      - name: Execute Automated xUnit Test Suite
+        run: dotnet test IlyPhotoWeb.Tests/IlyPhotoWeb.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Publish Web Application Artifact
+        run: dotnet publish IlyPhotoWeb/IlyPhotoWeb.csproj --configuration Release -o ./publish
+
+      - name: Archive Production Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ilyphoto-web-production
+          path: ./publish
+          retention-days: 7

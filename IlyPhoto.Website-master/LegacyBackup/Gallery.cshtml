@@ -1,0 +1,110 @@
+@{
+    ViewData["Title"] = "Gallery Uploads & Management";
+    var bookings = ViewBag.Bookings as List<IlyPhotoWeb.Models.Booking> ?? new List<IlyPhotoWeb.Models.Booking>();
+    var privateAlbums = ViewBag.PrivatePhotos as List<IlyPhotoWeb.Models.PhotoAlbum> ?? new List<IlyPhotoWeb.Models.PhotoAlbum>();
+    var publicAlbums = ViewBag.PublicPhotos as List<IlyPhotoWeb.Models.PhotoAlbum> ?? new List<IlyPhotoWeb.Models.PhotoAlbum>();
+}
+
+<div class="container">
+    <!-- Wireframe Header "Admin / Gallery" -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem;">
+        <div>
+            <h1 style="font-size: 2.25rem; margin-bottom: 0.35rem;">Gallery & Deliverables Management</h1>
+            <p style="color: #666; margin: 0;">Upload Deliverable Photo Albums linked to Client Booking IDs</p>
+        </div>
+        <a href="#uploadModal" class="btn btn-primary">📁 Upload Photo Album</a>
+    </div>
+
+    <!-- Upload Album Form matching User Request with Fetch Image / File Explorer Button -->
+    <div id="uploadModal" class="card" style="padding: 2.5rem; margin-bottom: 3rem; border: 2px solid #4A3525;">
+        <h3 style="margin-bottom: 1.25rem; color: #4A3525;">Upload New Photo Album Deliverable</h3>
+        <form asp-action="UploadGallery" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label class="form-label">Upload Destination Type *</label>
+                <select name="targetType" class="form-control">
+                    <option value="private">🔒 Private Client Gallery Album (Linked to Client Booking ID - POPIA Secure)</option>
+                    <option value="public">🌐 Public Showcase Album (Visible to all website visitors)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Link to Client Booking ID *</label>
+                <select name="bookingId" class="form-control">
+                    @foreach (var b in bookings)
+                    {
+                        <option value="@b.Id">
+                            @b.Id - @b.ClientName (@b.ServiceName) [@b.ClientEmail]
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Album Title *</label>
+                <input type="text" name="title" class="form-control" placeholder="e.g. Sunset Bridal Ceremony Deliverables" required />
+            </div>
+
+            <!-- Fetch Images File Explorer Input Button -->
+            <div class="form-group" style="background-color: #FAF7F2; padding: 1.5rem; border: 2px dashed #4A3525; border-radius: 8px; text-align: center;">
+                <label class="form-label" style="font-size: 1rem; color: #4A3525; margin-bottom: 0.5rem;">📷 Fetch Images from Device File Explorer</label>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 1rem;">Select multiple photos to upload as an album of images.</p>
+                
+                <input type="file" id="imageFiles" name="imageFiles" multiple accept="image/*" class="form-control" style="display: none;" onchange="updateFilePreview(this)" />
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('imageFiles').click();">
+                    📁 Browse & Fetch Images (Opens File Explorer)
+                </button>
+                
+                <div id="filePreviewCount" style="margin-top: 0.75rem; font-weight: 700; color: #2D6A4F; font-size: 0.9rem;"></div>
+            </div>
+
+            <!-- Fallback URL input -->
+            <div class="form-group">
+                <label class="form-label">Or Image Asset URLs (Comma-separated links)</label>
+                <input type="text" name="imageUrl" class="form-control" placeholder="https://images.unsplash.com/photo-1..., https://..." />
+            </div>
+
+            <button type="submit" class="btn btn-black btn-full" style="margin-top: 1rem;">
+                📤 Upload & Save Photo Album
+            </button>
+        </form>
+    </div>
+
+    <!-- Client Deliverable Albums Showcase -->
+    <section style="margin-bottom: 3rem;">
+        <h3 style="margin-bottom: 1rem;">🔒 Client Deliverable Photo Albums (@privateAlbums.Count)</h3>
+        <div class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+            @foreach (var album in privateAlbums)
+            {
+                <div class="card" style="padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span class="badge" style="background-color: #EAE3D2; color: #4A3525;">Ref: @album.BookingId</span>
+                        <span style="font-size: 0.8rem; color: #666;">@album.UploadDate</span>
+                    </div>
+                    <h4 style="margin: 0.25rem 0;">@album.Title</h4>
+                    <p style="font-size: 0.82rem; color: #666; margin-bottom: 0.75rem;">Client: @album.ClientEmail</p>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; margin-top: 0.5rem;">
+                        @foreach (var imgUrl in album.ImageUrls)
+                        {
+                            <div style="height: 60px; border-radius: 4px; overflow: hidden; background-color: #E6E1D8;">
+                                <img src="@imgUrl" alt="Thumbnail" style="width: 100%; height: 100%; object-fit: cover;" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+<script>
+    function updateFilePreview(input) {
+        const count = input.files ? input.files.length : 0;
+        const elem = document.getElementById('filePreviewCount');
+        if (count > 0) {
+            elem.innerText = '✓ ' + count + ' photo(s) selected from File Explorer ready for album upload!';
+        } else {
+            elem.innerText = '';
+        }
+    }
+</script>

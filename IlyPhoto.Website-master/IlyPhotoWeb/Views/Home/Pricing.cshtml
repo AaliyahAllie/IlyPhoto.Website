@@ -1,0 +1,137 @@
+@model List<IlyPhotoWeb.Models.ServicePackage>
+@{
+    ViewData["Title"] = "Packages & Pricing";
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">OUR SERVICES & RATES</p>
+        <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Photography Packages</h1>
+        <p style="color: #666; max-width: 600px; margin: 0 auto;">Transparent pricing tailored for matric balls, weddings, corporate events, and bespoke celebrations in Cape Town.</p>
+    </div>
+
+    <!-- Package Cards Grid -->
+    <div class="card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-bottom: 3.5rem;">
+        @foreach (var srv in Model)
+        {
+            bool isWedding = srv.Name.Contains("Wedding", StringComparison.OrdinalIgnoreCase);
+
+            <div class="card @(isWedding ? "card-dark" : "")"
+                 style="display: flex; flex-direction: column; justify-content: space-between; padding: 2rem; border-radius: 8px; border: @(isWedding ? "none" : "1px solid #E2DACB"); background: @(isWedding ? "#1A1A1A" : "#FFFFFF"); color: @(isWedding ? "#FAF7F2" : "#2C2C2C"); box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span class="badge" style="background-color: @(isWedding ? "#4A3525" : "#EAE3D2"); color: @(isWedding ? "#FAF7F2" : "#4A3525"); font-weight: 700; font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 4px;">
+                            @(srv.HourlyOnly ? "HOURLY" : $"{srv.IncludedHours} HOURS INCLUDED")
+                        </span>
+                        @if (isWedding)
+                        {
+                            <span style="font-size: 0.75rem; color: #C5A059; font-weight: 700; text-transform: uppercase;">⭐ MOST POPULAR</span>
+                        }
+                    </div>
+
+                    <h2 style="font-size: 1.6rem; margin-bottom: 0.5rem; color: @(isWedding ? "#FFFFFF" : "#1A1A1A"); font-weight: 700;">
+                        @srv.Name
+                    </h2>
+                    <p style="color: @(isWedding ? "#DDD" : "#666"); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                        @srv.Description
+                    </p>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <span style="font-size: 2.4rem; font-weight: 800; color: @(isWedding ? "#FAF7F2" : "#4A3525");">
+                            @Format.Rand(srv.BasePrice)
+                        </span>
+                        <span style="font-size: 0.85rem; font-weight: 500; color: @(isWedding ? "#BBB" : "#777");">
+                            @(srv.HourlyOnly ? " / hour" : srv.Name.Contains("Matric", StringComparison.OrdinalIgnoreCase) ? " / 2-3 hr package" : " (base package)")
+                        </span>
+                    </div>
+
+                    @if (!srv.HourlyOnly && srv.ExtraHourPrice > 0)
+                    {
+                        <div style="font-size: 0.85rem; color: @(isWedding ? "#CCC" : "#666"); margin-bottom: 1.25rem; background: @(isWedding ? "#2A2A2A" : "#FAF7F2"); padding: 0.5rem 0.75rem; border-radius: 4px;">
+                            +@Format.Rand(srv.ExtraHourPrice) for each additional hour
+                        </div>
+                    }
+
+                    <ul style="list-style: none; margin-bottom: 2rem; padding: 0; font-size: 0.88rem; line-height: 1.8;">
+                        <li style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: #C5A059; font-weight: bold;">✓</span> High-resolution digital album
+                        </li>
+                        <li style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: #C5A059; font-weight: bold;">✓</span> Professional color correction & edit
+                        </li>
+                        <li style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: #C5A059; font-weight: bold;">✓</span> Secure client portal download (ZIP)
+                        </li>
+                        <li style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: #C5A059; font-weight: bold;">✓</span> Direct EFT payment support
+                        </li>
+                    </ul>
+                </div>
+
+                <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Client/Bookings"
+                   class="btn @(isWedding ? "btn-secondary" : "btn-black") btn-full"
+                   style="text-align: center; text-decoration: none; padding: 0.8rem; font-weight: 700; border-radius: 4px;">
+                    📅 Book @srv.Name
+                </a>
+            </div>
+        }
+    </div>
+
+    <!-- Interactive Price Estimator -->
+    <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; max-width: 700px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+        <h3 style="margin-top: 0; color: #4A3525; font-size: 1.4rem;">💡 Calculate Instant Event Quote</h3>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">Select your package and desired hours to preview your investment:</p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #4A3525; margin-bottom: 0.35rem;">Package</label>
+                <select id="calcPackage" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" onchange="calculateQuote()">
+                    @foreach (var srv in Model)
+                    {
+                        <option value="@srv.Name" data-base="@srv.BasePrice" data-inc="@srv.IncludedHours" data-extra="@srv.ExtraHourPrice" data-hourly="@srv.HourlyOnly.ToString().ToLower()">
+                            @srv.Name
+                        </option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #4A3525; margin-bottom: 0.35rem;">Duration (Hours)</label>
+                <input id="calcHours" type="number" min="1" max="14" value="4" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;" oninput="calculateQuote()" />
+            </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2DACB; border-radius: 6px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.85rem; color: #7A6B5D; font-weight: 600;">ESTIMATED TOTAL:</span>
+                <div id="calcQuoteResult" style="font-size: 1.8rem; font-weight: 800; color: #4A3525;">R1,500</div>
+            </div>
+            <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Client/Bookings" class="btn btn-primary" style="padding: 0.65rem 1.25rem; font-weight: 700; text-decoration: none;">
+                Proceed to Book
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function calculateQuote() {
+        var sel = document.getElementById('calcPackage');
+        var opt = sel.options[sel.selectedIndex];
+        var base = parseFloat(opt.getAttribute('data-base')) || 0;
+        var inc = parseInt(opt.getAttribute('data-inc')) || 1;
+        var extra = parseFloat(opt.getAttribute('data-extra')) || 0;
+        var isHourly = opt.getAttribute('data-hourly') === 'true';
+        var hours = Math.max(1, parseInt(document.getElementById('calcHours').value) || 1);
+
+        var total = 0;
+        if (isHourly) {
+            total = hours * base;
+        } else {
+            total = base + Math.max(0, hours - inc) * extra;
+        }
+
+        document.getElementById('calcQuoteResult').textContent = 'R' + total.toLocaleString('en-ZA', { maximumFractionDigits: 0 });
+    }
+    document.addEventListener('DOMContentLoaded', calculateQuote);
+</script>
+}

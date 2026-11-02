@@ -1,0 +1,186 @@
+@model AdminInvoicesViewModel
+@{ 
+    ViewData["Title"] = "Tax Invoices & Billing"; 
+}
+
+<div class="container" style="padding: 2.5rem 1rem;">
+  <section class="dashboard-head">
+    <div>
+      <p style="font-size: 0.75rem; letter-spacing: 0.1em; color: #7A6B5D; text-transform: uppercase; font-weight: 700; margin: 0;">STUDIO BILLING</p>
+      <h1 style="font-size: 2.5rem; font-weight: 700; color: #1A1A1A; margin: 0.35rem 0 0.5rem 0;">Invoices & EFT Payments</h1>
+      <p style="color: #666; margin: 0;">Create and track client invoices. Invoices are automatically formatted with EFT banking details and emailed to clients.</p>
+    </div>
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('invoiceForm').showModal()" style="padding: 0.75rem 1.25rem;">
+      + Generate New Invoice
+    </button>
+  </section>
+
+  <!-- Invoices List Table -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2.5rem;">
+    @if (Model.Invoices.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">No invoices have been generated yet. Click "+ Generate New Invoice" to bill a client.</p>
+    }
+    else
+    {
+      <div class="table-wrap">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+              <th style="padding: 12px;">Invoice No</th>
+              <th style="padding: 12px;">Client</th>
+              <th style="padding: 12px;">Service / Session</th>
+              <th style="padding: 12px;">Total Due</th>
+              <th style="padding: 12px;">Email Dispatched</th>
+              <!-- "View before Update" requirement: View button column is placed BEFORE status update -->
+              <th style="padding: 12px; text-align: center;">View Invoice</th>
+              <th style="padding: 12px; text-align: right;">Payment Status</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach (var row in Model.Invoices)
+          {
+            var i = row.Invoice;
+            <tr style="border-bottom: 1px solid #ECE4D8;">
+              <td style="padding: 12px; font-weight: 700; color: #4A3525;">@i.InvoiceNo</td>
+              <td style="padding: 12px;">
+                <strong>@row.ClientName</strong><br/>
+                <small style="color: #666;">@i.ClientId • @row.ClientEmail</small>
+              </td>
+              <td style="padding: 12px;">
+                @(string.IsNullOrEmpty(i.BookingLabel) ? i.Service : i.BookingLabel)<br/>
+                <small style="color: #888;">Due: @Format.Date(i.DueDate)</small>
+              </td>
+              <td style="padding: 12px; font-weight: 800; color: #1A1A1A;">
+                @Format.Rand(i.Total)
+              </td>
+              <td style="padding: 12px;">
+                <span class="badge" style="background: #E8F8F5; color: #117A65; font-size: 0.78rem;">
+                  ✉️ Emailed via EFT Notice
+                </span>
+              </td>
+              <!-- Step 1: View before update -->
+              <td style="padding: 12px; text-align: center;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('invoice-@i.Id').showModal()">
+                  👁️ View Statement
+                </button>
+              </td>
+              <!-- Step 2: Update status -->
+              <td style="padding: 12px; text-align: right;">
+                <form method="post" asp-controller="Admin" asp-action="SetInvoiceStatus" style="display: inline; margin: 0;">
+                  <input type="hidden" name="id" value="@i.Id"/>
+                  <select name="status" onchange="this.form.submit()" class="form-control" style="padding: 0.4rem 0.6rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                    @foreach (var st in InvoiceStatus.All) 
+                    { 
+                      <option value="@st" selected="@(st == i.Status)">@st</option> 
+                    }
+                  </select>
+                </form>
+              </td>
+            </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Render individual modal sheets for each invoice -->
+@foreach (var row in Model.Invoices) 
+{ 
+  <partial name="_InvoiceSheet" model="row" /> 
+}
+
+<!-- Modal to Create New Invoice -->
+<dialog id="invoiceForm" style="border: 0; border-radius: 8px; padding: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+  <form method="post" asp-controller="Admin" asp-action="CreateInvoice" class="dialog-card wide">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2DACB; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+      <h2 style="color: #4A3525; margin: 0; font-size: 1.4rem;">Generate Tax Invoice</h2>
+      <button type="button" onclick="this.closest('dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #777;">✕</button>
+    </div>
+
+    <div class="two" style="margin-bottom: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Client *</label>
+        <select name="clientId" id="invClient" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+          <option value="">Select a client…</option>
+          @foreach (var c in Model.Clients) 
+          { 
+            <option value="@c.ClientId">@c.ClientId · @c.FullName (@c.Email)</option> 
+          }
+        </select>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Linked Confirmed Booking (Optional)</label>
+        <select name="bookingId" id="invBooking" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+          <option value="">— Standalone / Custom Session —</option>
+          @foreach (var b in Model.Bookings) 
+          { 
+            <option value="@b.Id" data-client="@b.ClientId" data-service="@b.EventType" data-price="@b.EstimatedTotal.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+              @b.ClientId · @b.Label
+            </option> 
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="two" style="margin-bottom: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Issue Date</label>
+        <input type="date" name="issueDate" value="@Format.TodayIso()" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Payment Due Date</label>
+        <input type="date" name="dueDate" value="@Format.Iso(Format.TodaySA().AddDays(14))" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Service / Package Description *</label>
+      <input name="service" id="invService" maxlength="200" required placeholder="e.g. Wedding Photography Coverage (4 hours)" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+    </div>
+
+    <div class="two" style="margin-bottom: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Quantity</label>
+        <input type="number" name="quantity" value="1" min="1" class="form-control" required style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+      <div>
+        <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Unit Rate (ZAR) *</label>
+        <input type="number" name="price" id="invPrice" min="0" step="0.01" class="form-control" required placeholder="1500" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;"/>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 0.88rem; font-weight: 600; color: #4A3525; margin-bottom: 0.35rem;">Initial Status</label>
+      <select name="status" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid #D1C7B7; border-radius: 4px;">
+        @foreach (var st in InvoiceStatus.All) 
+        { 
+          <option value="@st">@st</option> 
+        }
+      </select>
+    </div>
+
+    <div style="background: #FAF7F2; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.85rem; color: #555;">
+      ✉️ <strong>Notice:</strong> When generated, the invoice will immediately be dispatched via email to the client with Standard Bank EFT details.
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button class="btn btn-outline" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-primary" type="submit">Generate & Send Invoice</button>
+    </div>
+  </form>
+</dialog>
+
+@section Scripts {
+<script>
+  initClientBookingPicker('invClient', 'invBooking', function(opt) {
+    if (opt && opt.dataset.service) {
+      document.getElementById('invService').value = opt.dataset.service + ' Photography Session';
+      document.getElementById('invPrice').value = opt.dataset.price;
+    }
+  });
+</script>
+}

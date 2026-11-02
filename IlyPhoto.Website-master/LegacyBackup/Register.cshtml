@@ -1,0 +1,41 @@
+@{
+    ViewData["Title"] = "Client Register";
+}
+
+<div class="container" style="max-width: 460px;">
+    <!-- Wireframe Header "Client / Register" -->
+    <div style="text-align: center; margin-bottom: 2.5rem;">
+        <h1 style="font-size: 2.25rem; margin-bottom: 0.5rem;">Register</h1>
+        <p style="color: #666;">Create your account</p>
+    </div>
+
+    <form asp-action="Register" method="post" class="card" style="padding: 2.5rem;">
+        <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input type="text" name="fullName" class="form-control" placeholder="John Doe" required />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Username *</label>
+            <input type="text" name="username" class="form-control" placeholder="johndoe" required />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input type="email" name="email" class="form-control" placeholder="john@example.com" required />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password *</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required />
+        </div>
+
+        <button type="submit" class="btn btn-black btn-full" style="margin-top: 1rem;">
+            👤 Register Account
+        </button>
+
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem;">
+            Already have an account? <a asp-action="Login" style="color: #4A3525; font-weight: 600;">Sign in</a>
+        </div>
+    </form>
+</div>

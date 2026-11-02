@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Admin Login";
+    string? error = ViewBag.Error as string;
+}
+
+<div class="container" style="max-width: 440px;">
+    <!-- Wireframe Header "Admin / Login" -->
+    <div style="text-align: center; margin-bottom: 2.5rem;">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;">🛡️</div>
+        <h1 style="font-size: 2.25rem; margin-bottom: 0.35rem;">Login</h1>
+        <p style="color: #666;">Photographer Admin Side</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div style="padding: 0.85rem; background-color: #FEE2E2; border: 1px solid #991B1B; border-radius: 6px; color: #991B1B; font-size: 0.88rem; margin-bottom: 1.25rem;">
+            ⚠️ @error
+        </div>
+    }
+
+    <form asp-action="Login" method="post" class="card" style="padding: 2.5rem;">
+        <div class="form-group">
+            <label class="form-label">Admin Username</label>
+            <input type="text" name="username" class="form-control" value="AyshaAllie" required />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" value="Ilyaas202115!!!" required />
+        </div>
+
+        <button type="submit" class="btn btn-black btn-full" style="margin-top: 1rem;">
+            🔒 Enter Photographer Dashboard
+        </button>
+    </form>
+</div>

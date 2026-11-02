@@ -1,0 +1,97 @@
+@model List<IlyPhotoWeb.Models.Booking>
+@{
+    ViewData["Title"] = "Client Dashboard";
+    string clientName = ViewBag.ClientName as string ?? "Client";
+    var myPhotos = ViewBag.MyPhotos as List<IlyPhotoWeb.Models.PhotoAlbum> ?? new List<IlyPhotoWeb.Models.PhotoAlbum>();
+    var myInvoices = ViewBag.MyInvoices as List<IlyPhotoWeb.Models.Invoice> ?? new List<IlyPhotoWeb.Models.Invoice>();
+}
+
+<div class="container">
+    <!-- Wireframe Header "Client/Landing" -->
+    <section class="hero-section" style="padding: 3rem 2rem; text-align: left; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+        <div>
+            <h1 style="font-size: 2.5rem; margin-bottom: 0.35rem;">Welcome</h1>
+            <p style="color: #666; font-size: 1.1rem; margin: 0;">Welcome back! @clientName</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a asp-action="Booking" class="btn btn-primary">➕ New Booking</a>
+            <a asp-action="Gallery" class="btn btn-outline">🖼️ My Private Gallery</a>
+        </div>
+    </section>
+
+    <!-- My Private Gallery Deliverables Preview -->
+    <section style="margin-bottom: 2.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">My Private Photo Albums (@myPhotos.Count)</h3>
+            <a asp-action="Gallery" style="font-size: 0.9rem; font-weight: 600;">View Full Private Album →</a>
+        </div>
+
+        @if (myPhotos.Count > 0)
+        {
+            <div class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+                @foreach (var album in myPhotos)
+                {
+                    <div class="card" style="padding: 0; overflow: hidden;">
+                        <div class="wireframe-box" style="height: 180px;">
+                            <img src="@album.CoverImageUrl" alt="@album.Title" />
+                        </div>
+                        <div style="padding: 0.85rem;">
+                            <h4 style="margin: 0; font-size: 1rem;">@album.Title</h4>
+                            <span style="font-size: 0.78rem; color: #666;">Ref: @album.BookingId | 📷 @album.ImageUrls.Count Photos</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="card" style="padding: 2rem; text-align: center; color: #666;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📁</div>
+                <p style="margin: 0;">No photo albums uploaded yet for your account. Once your photographer completes your shoot, your private deliverables album will appear here!</p>
+            </div>
+        }
+    </section>
+
+    <!-- My Bookings Section matching Wireframe 3 -->
+    <section>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">My Photography Bookings</h3>
+            <span style="font-size: 0.88rem; color: #666;">Total: @Model.Count Bookings</span>
+        </div>
+
+        @if (Model.Count > 0)
+        {
+            <div class="card-grid">
+                @foreach (var b in Model)
+                {
+                    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span style="font-weight: 700; font-size: 0.9rem; color: #4A3525;">@b.Id</span>
+                                <span class="badge badge-@(b.Status.ToLower())">@b.Status</span>
+                            </div>
+                            <h4 style="font-size: 1.15rem; margin-bottom: 0.35rem;">@b.ServiceName</h4>
+                            <p style="font-size: 0.88rem; color: #666; margin-bottom: 0.25rem;">📅 @b.EventDate at @b.EventTime</p>
+                            <p style="font-size: 0.88rem; color: #666; margin-bottom: 0.75rem;">📍 @b.Location</p>
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid #E2DACB; padding-top: 0.75rem;">
+                            <a asp-action="Invoices" class="btn btn-secondary btn-sm" style="flex: 1;">📄 Invoices</a>
+                            @if (b.Status == "Completed")
+                            {
+                                <a asp-action="Reviews" class="btn btn-primary btn-sm" style="flex: 1;">⭐ Review</a>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="card" style="padding: 2rem; text-align: center; color: #666;">
+                <p>You have not placed any booking requests yet.</p>
+                <a asp-action="Booking" class="btn btn-primary btn-sm" style="margin-top: 0.5rem;">📅 Make First Booking</a>
+            </div>
+        }
+    </section>
+</div>

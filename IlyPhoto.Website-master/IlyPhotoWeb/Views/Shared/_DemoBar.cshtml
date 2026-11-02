@@ -1,0 +1,60 @@
+@{
+    var isAdmin = User.IsInRole("Admin");
+    var isClient = User.IsInRole("Client");
+    var isGuest = !User.Identity?.IsAuthenticated == true;
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div id="ilyDemoBar" class="demo-presentation-bar" style="background: #231811; color: #FAF7F2; border-bottom: 2px solid #8C6D53; padding: 0.5rem 1rem; font-size: 0.84rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 9999; box-shadow: 0 4px 15px rgba(0,0,0,0.25); flex-wrap: wrap; gap: 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="background: #8C6D53; color: #FFF; font-weight: 800; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.72rem; letter-spacing: 0.05em;">WIL3 DEMO</span>
+        <strong style="color: #EAE3D2; font-family: var(--font-sans);">Quick Persona Switcher:</strong>
+    </div>
+
+    <!-- Persona Switcher Buttons -->
+    <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+        <a href="/Account/SwitchPersona?persona=admin&returnUrl=@Url.Content(currentUrl)"
+           class="demo-pill @(isAdmin ? "active-persona" : "")"
+           style="text-decoration: none; padding: 0.28rem 0.75rem; border-radius: 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s; @(isAdmin ? "background: #D4AF37; color: #1A1A1A; box-shadow: 0 0 8px rgba(212,175,55,0.6);" : "background: rgba(255,255,255,0.1); color: #FAF7F2; border: 1px solid rgba(255,255,255,0.15);")">
+            👑 Photographer / Admin
+        </a>
+
+        <a href="/Account/SwitchPersona?persona=client&returnUrl=@Url.Content(currentUrl)"
+           class="demo-pill @(isClient ? "active-persona" : "")"
+           style="text-decoration: none; padding: 0.28rem 0.75rem; border-radius: 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s; @(isClient ? "background: #0E6251; color: #FFF; box-shadow: 0 0 8px rgba(14,98,81,0.6);" : "background: rgba(255,255,255,0.1); color: #FAF7F2; border: 1px solid rgba(255,255,255,0.15);")">
+            👤 Client (Amina)
+        </a>
+
+        <a href="/Account/SwitchPersona?persona=guest&returnUrl=@Url.Content(currentUrl)"
+           class="demo-pill @(isGuest ? "active-persona" : "")"
+           style="text-decoration: none; padding: 0.28rem 0.75rem; border-radius: 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s; @(isGuest ? "background: #4A3525; color: #FAF7F2; border: 1px solid #8C6D53;" : "background: rgba(255,255,255,0.1); color: #FAF7F2; border: 1px solid rgba(255,255,255,0.15);")">
+            🌐 Public Guest
+        </a>
+    </div>
+
+    <!-- Quick Tools -->
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <a href="/Account/SeedDemoData?returnUrl=@Url.Content(currentUrl)" 
+           title="Populate realistic bookings, invoices, and community reviews for Strandfontein"
+           style="background: #8C6D53; color: #FFF; border-radius: 4px; padding: 0.25rem 0.65rem; font-weight: 700; text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+            ⚡ Seed Showcase Data
+        </a>
+        <a href="/diagnostics" 
+           title="Inspect Azure Table Storage & Blob Storage health"
+           style="color: #DFD7C6; text-decoration: underline; font-size: 0.78rem;">
+            🩺 System Telemetry
+        </a>
+        <button type="button" onclick="document.getElementById('ilyDemoBar').style.display='none'; document.getElementById('ilyDemoRestore').style.display='flex';"
+                style="background: transparent; border: none; color: #999; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.3rem;" title="Minimize presentation bar">
+            ✕
+        </button>
+    </div>
+</div>
+
+<!-- Floating Restore Pill if minimized -->
+<div id="ilyDemoRestore" style="display: none; position: fixed; bottom: 15px; right: 15px; z-index: 9999; background: #231811; border: 1px solid #8C6D53; border-radius: 30px; padding: 0.4rem 0.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.3); align-items: center; gap: 0.5rem;">
+    <button type="button" onclick="document.getElementById('ilyDemoBar').style.display='flex'; document.getElementById('ilyDemoRestore').style.display='none';"
+            style="background: transparent; border: none; color: #EAE3D2; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+        🎬 Open Demo Switcher
+    </button>
+</div>
