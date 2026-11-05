@@ -374,4 +374,110 @@ public class ApplicationWorkflowTests
         var reviews = await h.Reviews.ListApprovedAsync();
         Assert.True(reviews.Count >= 3);
     }
+
+    [Fact]
+    public async Task SessionProtection_ValidatesHmacSignedTokensAndRejectsTamperedOrEmailTokens()
+    {
+        var h = CreateTestHarness();
+        var reg = await h.Auth.RegisterAsync("Yusuf Khan", "yusuf@example.com", "0829998877", "StrongPass#1");
+        Assert.True(reg.Ok);
+        Assert.NotNull(reg.Token);
+        Assert.Equal(3, reg.Token!.Split('.').Length);
+
+        // Valid signed token authenticates user on /api/auth/me
+        h.Api.Request.Headers["Authorization"] = $"Bearer {reg.Token}";
+        var validMe = await h.Api.GetMe();
+        Assert.IsType<OkObjectResult>(validMe);
+
+        // Tampered signature must be rejected
+        var tampered = reg.Token[..^4] + "ffff";
+        h.Api.Request.Headers["Authorization"] = $"Bearer {tampered}";
+        var tamperedMe = await h.Api.GetMe();
+        Assert.IsType<UnauthorizedObjectResult>(tamperedMe);
+
+        // Raw email address masquerading as a bearer token must be rejected
+        h.Api.Request.Headers["Authorization"] = "Bearer yusuf@example.com";
+        var emailTokenMe = await h.Api.GetMe();
+        Assert.IsType<UnauthorizedObjectResult>(emailTokenMe);
+    }
+
+    [Fact]
+    public async Task BruteForceLockout_TemporarilyLocksAccountAfterRepeatedFailedLogins()
+    {
+        var h = CreateTestHarness();
+        await h.Auth.RegisterAsync("Farah Abrahams", "farah@example.com", "0841234567", "CorrectPass#9");
+
+        for (int i = 0; i < 5; i++)
+        {
+            var fail = await h.Auth.SignInAsync("farah@example.com", "WrongPassword!");
+            Assert.False(fail.Ok);
+        }
+
+        // 6th attempt even with the right password must be rejected while locked out
+        var lockedAttempt = await h.Auth.SignInAsync("farah@example.com", "CorrectPass#9");
+        Assert.False(lockedAttempt.Ok);
+        Assert.Contains("temporarily locked", lockedAttempt.Error ?? "", StringComparison.OrdinalIgnoreCase);
+
+        // Password reset clears lockout and allows sign-in with the new password
+        var reset = await h.Auth.ResetPasswordAsync("farah@example.com", "RecoveredPass#10");
+        Assert.True(reset.Ok);
+
+        var unlockedAttempt = await h.Auth.SignInAsync("farah@example.com", "RecoveredPass#10");
+        Assert.True(unlockedAttempt.Ok);
+    }
+
+    [Fact]
+    public async Task FailedRequests_EnforceValidationAndProtectDataIntegrity()
+    {
+        var h = CreateTestHarness();
+
+        // 1. Duplicate registration must fail with 400 BadRequest
+        await h.Auth.RegisterAsync("Imran Smith", "imran@example.com", "0821112222", "SecurePass123");
+        var dupReg = await h.Api.Register(new ApiController.RegisterRequest
+        {
+            FullName = "Imran Duplicate",
+            Email = "imran@example.com",
+            Password = "AnotherPassword123"
+        });
+        Assert.IsType<BadRequestObjectResult>(dupReg);
+
+        // 2. Rescheduling a non-existent booking returns 404 NotFound
+        var missingReschedule = await h.Api.UpdateStatus("book-doesnotexist", new ApiController.UpdateBookingRequest
+        {
+            Status = BookingStatus.Rescheduled,
+            EventDate = "2026-12-20"
+        });
+        Assert.IsType<NotFoundObjectResult>(missingReschedule);
+
+        // 3. Rescheduling onto an already confirmed date returns 409 Conflict and preserves original booking date
+        await h.Bookings.CreateAsync(new Booking
+        {
+            Id = "book-existing",
+            ClientId = "CL-1001",
+            EventType = "Wedding",
+            Date = "2026-12-22",
+            Status = BookingStatus.Confirmed
+        });
+        var secondId = await h.Bookings.CreateAsync(new Booking
+        {
+            Id = "book-second",
+            ClientId = "CL-1002",
+            EventType = "Matric Ball",
+            Date = "2026-12-19",
+            Location = "Original Hall",
+            Status = BookingStatus.Confirmed
+        });
+
+        var conflictReschedule = await h.Api.UpdateStatus(secondId, new ApiController.UpdateBookingRequest
+        {
+            Status = BookingStatus.Rescheduled,
+            EventDate = "2026-12-22",
+            EventLocation = "Should Not Save"
+        });
+        Assert.IsType<ConflictObjectResult>(conflictReschedule);
+
+        var untouched = await h.Bookings.GetAsync(secondId);
+        Assert.Equal("2026-12-19", untouched!.Date);
+        Assert.Equal("Original Hall", untouched.Location);
+    }
 }

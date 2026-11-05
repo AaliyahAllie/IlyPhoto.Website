@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Calendar, Image as ImageIcon, FileText, Star, PlusCircle, ArrowRight } from 'lucide-react';
+import { Modal } from '../../components/common/Modal';
+import { Calendar, Image as ImageIcon, FileText, Star, PlusCircle, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export const ClientDashboardPage = () => {
-  const { currentUser, bookings, clientGalleries, invoices } = useAuth();
+  const { currentUser, bookings, clientGalleries, invoices, rescheduleBooking } = useAuth();
+  const [editingBooking, setEditingBooking] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editError, setEditError] = useState('');
 
   const userEmail = currentUser?.email || 'sarah.j@example.com';
   const userName = currentUser?.name || 'Sarah';
@@ -14,6 +21,33 @@ export const ClientDashboardPage = () => {
   const myBookings = bookings.filter(b => b.clientEmail === userEmail);
   const myPhotos = clientGalleries.filter(g => g.clientEmail === userEmail);
   const myInvoices = invoices.filter(inv => inv.clientEmail === userEmail);
+
+  const openRescheduleModal = (b) => {
+    setEditingBooking(b);
+    setEditDate(b.eventDate || '');
+    setEditTime(b.eventTime || '10:00');
+    setEditLocation(b.location || '');
+    setEditNotes(b.requirements || '');
+    setEditError('');
+  };
+
+  const handleSaveReschedule = async (e) => {
+    e.preventDefault();
+    if (!editingBooking) return;
+    setEditError('');
+    try {
+      await rescheduleBooking(editingBooking.id, {
+        eventDate: editDate || editingBooking.eventDate,
+        eventTime: editTime || editingBooking.eventTime,
+        location: editLocation || editingBooking.location,
+        requirements: editNotes,
+        serviceName: editingBooking.serviceName
+      });
+      setEditingBooking(null);
+    } catch (err) {
+      setEditError(err.message || 'Could not reschedule booking. The selected date may already be booked.');
+    }
+  };
 
   return (
     <div className="page-wrapper container">
@@ -84,10 +118,15 @@ export const ClientDashboardPage = () => {
                 <p style={{ fontSize: '0.88rem', color: '#666', marginBottom: '0.75rem' }}>📍 {b.location}</p>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid #E2DACB', paddingTop: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid #E2DACB', paddingTop: '0.75rem', flexWrap: 'wrap' }}>
                 <Link to="/client/invoices" className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
                   <FileText size={14} /> Invoices
                 </Link>
+                {(b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'Rescheduled') && (
+                  <button type="button" onClick={() => openRescheduleModal(b)} className="btn btn-outline btn-sm" style={{ flex: 1 }}>
+                    <RefreshCw size={14} /> Reschedule
+                  </button>
+                )}
                 {b.status === 'Completed' && (
                   <Link to="/client/reviews" className="btn btn-primary btn-sm" style={{ flex: 1 }}>
                     <Star size={14} /> Review
@@ -98,6 +137,38 @@ export const ClientDashboardPage = () => {
           ))}
         </div>
       </section>
+
+      <Modal isOpen={!!editingBooking} onClose={() => setEditingBooking(null)} title={`Edit / Reschedule Booking: ${editingBooking?.id}`}>
+        {editingBooking && (
+          <form onSubmit={handleSaveReschedule}>
+            {editError && (
+              <div style={{ padding: '0.75rem', backgroundColor: '#FDEDEC', border: '1px solid #922B21', borderRadius: '6px', color: '#922B21', fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <AlertTriangle size={18} />
+                <span>{editError}</span>
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">New Event Date *</label>
+              <input type="date" className="form-control" value={editDate} onChange={e => setEditDate(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">New Event Time *</label>
+              <input type="time" className="form-control" value={editTime} onChange={e => setEditTime(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Venue / Location *</label>
+              <input type="text" className="form-control" value={editLocation} onChange={e => setEditLocation(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Notes / Requirements</label>
+              <textarea className="form-control" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">
+              <RefreshCw size={16} /> Save Rescheduled Date, Time &amp; Venue
+            </button>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };

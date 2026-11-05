@@ -97,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initBookingCalendar(admin = false) {
     window.calendarAdmin = admin;
+    window.calendarCloudLoaded = false;
+    window.latestCalendarStatus = {};
     renderCalendar();
 }
 
@@ -115,11 +117,21 @@ async function renderCalendar() {
     }
 
     const noticeEl = document.getElementById('calendarStatusNotice');
+    const submitBtn = document.querySelector('#bookingForm button[type="submit"]');
+    if (submitBtn && !window.calendarAdmin) {
+        submitBtn.disabled = true;
+    }
+
     let status = {};
     try {
-        const res = await fetch(`/api/calendar?year=${y}&month=${m + 1}`, { credentials: 'same-origin' });
+        const res = await fetch(`/api/calendar?year=${y}&month=${m + 1}&_t=${Date.now()}`, {
+            credentials: 'same-origin',
+            cache: 'no-store'
+        });
         if (res.ok) {
             status = await res.json();
+            window.calendarCloudLoaded = true;
+            window.latestCalendarStatus[`${y}-${String(m + 1).padStart(2, '0')}`] = status;
             if (noticeEl) noticeEl.style.display = 'none';
         } else if (noticeEl) {
             noticeEl.textContent = 'Live calendar status could not be refreshed. Availability will be verified on the server when you submit.';
@@ -129,6 +141,10 @@ async function renderCalendar() {
         if (noticeEl) {
             noticeEl.textContent = 'Offline / network delay: live calendar status could not be loaded. Server-side conflict checks remain active.';
             noticeEl.style.display = 'block';
+        }
+    } finally {
+        if (submitBtn && !window.calendarAdmin) {
+            submitBtn.disabled = false;
         }
     }
     if (calendarDate.getFullYear() !== y || calendarDate.getMonth() !== m) return;

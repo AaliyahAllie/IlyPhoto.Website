@@ -68,11 +68,27 @@ try
     app.Services.GetRequiredService<AzureBlobPhotoStorage>();
     var cloudSync = app.Services.GetRequiredService<AzureCloudSyncService>();
     await cloudSync.EnsureSyncedAsync(force: true);
+
+    var bookingStore = app.Services.GetRequiredService<BookingStore>();
+    if ((await bookingStore.ListAllAsync()).Count == 0)
+    {
+        var seeder = app.Services.GetRequiredService<DemoSeederService>();
+        await seeder.SeedShowcaseAsync();
+    }
 }
 catch (Exception ex)
 {
     app.Logger.LogWarning(ex, "Azure storage pre-initialization warning: {Message}", ex.Message);
 }
+
+// Enforce security headers across all responses
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
 
 if (!app.Environment.IsDevelopment())
 {

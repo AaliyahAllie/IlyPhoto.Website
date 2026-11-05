@@ -49,11 +49,12 @@ All structured application data is stored in **Microsoft Azure Table Storage** (
 | **`counters`** | `"counter"` | Sequence name (`"clients"`, `"invoices"`) | Generates `CL-1001` & `INV-00001` | Atomic `Value` counter for sequential human-readable IDs. |
 
 ### 3.2 Data Integrity & Security Rules
-1. **Strict Credential Verification:** Passwords are hashed using `BCrypt.Net.BCrypt.HashPassword`. Existing accounts strictly verify against `BCrypt.Verify` and never fall back to a cached profile or default password on failed login.
-2. **Validated Password Recovery:** Both `AccountController.ForgotPassword` and `POST /api/auth/reset-password` verify that the submitted email is valid and registered in the `users` table before updating the BCrypt hash and dispatching a `Security` notification.
-3. **Server-Side Availability & Conflict Prevention:** Creating or rescheduling a booking checks `BookingStore.HasConflictOnDateAsync(dateIso, exceptBookingId)` against both `blockedDates` and existing `Confirmed`/`Rescheduled` bookings, returning `409 Conflict` (API) or a validation error (MVC) to prevent double-booking.
-4. **Full-Field Rescheduling Persistence:** Rescheduling via the Client Portal (`ClientController.EditBooking`), Admin Portal (`AdminController.RescheduleBooking`), or REST API (`PUT /api/bookings/{id}` and `PATCH /api/bookings/{id}/status`) persists all amended fields: `Date`, `StartTime`, `EndTime`, `Hours`, `Location` (venue), `EventType` (package), `EstimatedTotal`, `Notes`, and `Status`.
-5. **Automated Invoicing & Reliable Notifications:** Approving a booking (`ApproveBooking` or `PUT/PATCH /api/bookings/{id}`) automatically generates a linked `Invoice` (`INV-xxxxx`), updates the booking's `InvoiceNumber`, archives HTML emails under `App_Data/sent_emails/`, and persists a `NotificationItem` to the `notifications` Azure Table.
+1. **Strict Credential Verification & Brute-Force Lockout Protection:** Passwords are hashed using `BCrypt.Net.BCrypt.HashPassword`. Existing accounts strictly verify against `BCrypt.Verify`, enforce temporary lockout after 5 consecutive failed sign-in attempts, and never fall back to a cached profile or default password on failed login.
+2. **HMAC-SHA256 Signed Session Tokens & Cookie Protection:** REST API authentication (`POST /api/auth/login` and `POST /api/auth/register`) issues 24-hour HMAC-SHA256 signed bearer tokens (`{uid}.{exp}.{hmac}`) verified via constant-time comparison (`CryptographicOperations.FixedTimeEquals`), rejecting forged, expired, or raw-email tokens. Web sessions use `HttpOnly`, `SameSite=Lax`, sliding-expiration cookies and HTTP security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`).
+3. **Validated Password Recovery:** Both `AccountController.ForgotPassword` and `POST /api/auth/reset-password` verify that the submitted email is valid and registered in the `users` table before updating the BCrypt hash, clearing any lockout state, and dispatching a `Security` notification.
+4. **Server-Side Availability & Conflict Prevention:** Creating or rescheduling a booking checks `BookingStore.HasConflictOnDateAsync(dateIso, exceptBookingId)` against both `blockedDates` and existing `Confirmed`/`Rescheduled` bookings, returning `409 Conflict` (API) or a validation error (MVC) to prevent double-booking.
+5. **Full-Field Rescheduling Persistence:** Rescheduling via the Client Portal (`ClientController.EditBooking`), Admin Portal (`AdminController.RescheduleBooking`), or REST API (`PUT /api/bookings/{id}` and `PATCH /api/bookings/{id}/status`) persists all amended fields: `Date`, `StartTime`, `EndTime`, `Hours`, `Location` (venue), `EventType` (package), `EstimatedTotal`, `Notes`, and `Status`.
+6. **Automated Invoicing & Reliable Notifications:** Approving a booking (`ApproveBooking` or `PUT/PATCH /api/bookings/{id}`) automatically generates a linked `Invoice` (`INV-xxxxx`), updates the booking's `InvoiceNumber`, archives HTML emails under `App_Data/sent_emails/`, and persists a `NotificationItem` to the `notifications` Azure Table.
 
 ---
 
@@ -96,8 +97,8 @@ This repository is fully configured for out-of-the-box development, debugging, a
 
 | Role | Email | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **Admin / Photographer** | `admin@ilyphoto.co.za` | `AdminPass123!` | Admin portal, bookings management, invoice generation, diagnostics |
-| **Client** | `client@test.com` | `ClientPass123!` | Client portal, booking history, rescheduling, invoices, notifications |
+| **Admin / Photographer** | `admin@ilyphoto.co.za` | `Password123!` | Admin portal, bookings management, invoice generation, diagnostics |
+| **Client** | `client@test.com` | `Password123!` | Client portal, booking history, rescheduling, invoices, notifications |
 
 ---
 
@@ -111,7 +112,7 @@ A persistent, floating **Presentation Bar** is active at the top of every screen
 - **⚡ Seed Showcase Data:** Populates realistic Cape Flats / Strandfontein bookings, invoices, and verified community reviews with one click without needing to create mock records during the live 15-minute presentation.
 
 ### 5.2 Automated DevOps Pipeline (GitHub Actions)
-- `.github/workflows/ci-cd.yml` automates solution restore, Release compilation, execution of 8 xUnit test cases, and packaging of production deployment artifacts on every push/PR to `master` and `main`.
+- `.github/workflows/ci-cd.yml` automates solution restore, Release compilation, execution of 11 xUnit test cases, and packaging of production deployment artifacts on every push/PR to `master` and `main`.
 
 ### 5.3 Containerized Cloud Deployment
 - A multi-stage `Dockerfile` and `.dockerignore` enable instant deployment to Azure Container Apps or Linux App Service:

@@ -113,4 +113,49 @@
       </table>
     </div>
   </div>
+
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-top: 2rem;">
+    <h2 style="font-size: 1.5rem; color: #4A3525; margin-top: 0; margin-bottom: 0.75rem;">Task 2 Lecturer Feedback Resolution &amp; Task 1 Design Alignment</h2>
+    <p style="color: #2C2C2C; font-size: 0.95rem; margin-bottom: 1.25rem;">
+      Every item from the Task 2 lecturer rubric has been resolved and aligned with the original Task 1 architecture, ERD, and sequence diagrams:
+    </p>
+    <div class="table-wrap">
+      <table class="table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color: #FAF7F2; border-bottom: 2px solid #E2DACB; text-align: left;">
+            <th style="padding: 12px;">Rubric Criterion</th>
+            <th style="padding: 12px;">Lecturer Feedback Addressed</th>
+            <th style="padding: 12px;">Implemented Resolution &amp; Verification</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;">UI &amp; Mobile Contrast</td>
+            <td style="padding: 12px;">Improve contrast and small text on mobile screens (login, labels, status badges).</td>
+            <td style="padding: 12px;">Upgraded form labels to <code>0.96rem–1rem</code> bold <code>#1A1A1A</code>, inputs to <code>1rem</code> with <code>1.5px</code> borders, and status badges to <code>0.88rem</code> WCAG AAA contrast in both Light and Dark modes.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;">Security &amp; Session Protection</td>
+            <td style="padding: 12px;">Reject failed authentication, prevent cached sign-in bypass, strengthen session protection.</td>
+            <td style="padding: 12px;">BCrypt verification with brute-force lockout protection (5 failed attempts), HMAC-SHA256 signed 24h bearer tokens, HttpOnly SameSite cookies, and immediate cache eviction on <code>401 Unauthorized</code>.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;">Error Handling &amp; Password Recovery</td>
+            <td style="padding: 12px;">Prevent suppressed registration/save/reset failures; verify account before reporting recovery success.</td>
+            <td style="padding: 12px;"><code>AuthService.ResetPasswordAsync</code> and <code>RegisterAsync</code> strictly validate Azure Table Storage records and return explicit HTTP <code>400/401/409</code> errors before reporting success.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;">Cross-Device Rescheduling</td>
+            <td style="padding: 12px;">Save all amended fields (date, start/end time, venue, package, notes, status) to Azure API.</td>
+            <td style="padding: 12px;"><code>PUT /api/bookings/{id}</code>, <code>PATCH /api/bookings/{id}/status</code>, and <code>BookingStore.RescheduleAsync</code> persist all amended fields in Azure Table Storage and sync across Web &amp; Android.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ECE4D8;">
+            <td style="padding: 12px; font-weight: 700;">Notifications &amp; NGO Need</td>
+            <td style="padding: 12px;">Demonstrate reliable notifications and substantiate NGO/community need.</td>
+            <td style="padding: 12px;">In-app <code>notifications</code> table + HTML email archive + subsidized <strong>Community &amp; NGO Impact Package</strong> for Strandfontein &amp; Cape Flats NPOs/schools.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>

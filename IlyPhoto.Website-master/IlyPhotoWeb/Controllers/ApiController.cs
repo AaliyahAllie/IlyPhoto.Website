@@ -97,7 +97,7 @@ public class ApiController : ControllerBase
         var profile = result.Profile;
         return Ok(new
         {
-            token = profile.Id,
+            token = result.Token ?? _auth.IssueSessionToken(profile),
             user = ToUserJson(profile)
         });
     }
@@ -134,7 +134,7 @@ public class ApiController : ControllerBase
 
         return Ok(new
         {
-            token = result.Profile.Id,
+            token = result.Token ?? _auth.IssueSessionToken(result.Profile),
             user = ToUserJson(result.Profile)
         });
     }
@@ -174,12 +174,25 @@ public class ApiController : ControllerBase
         var user = await GetAuthenticatedUserAsync();
         if (user == null) return Unauthorized(new { error = "Not authenticated" });
 
-        if (!string.IsNullOrWhiteSpace(req.DisplayName)) user.FullName = req.DisplayName.Trim();
-        else if (!string.IsNullOrWhiteSpace(req.FullName)) user.FullName = req.FullName.Trim();
+        var newName = !string.IsNullOrWhiteSpace(req?.DisplayName) ? req.DisplayName.Trim()
+            : (!string.IsNullOrWhiteSpace(req?.FullName) ? req.FullName.Trim() : null);
 
-        if (req.Phone != null) user.Phone = req.Phone.Trim();
-        if (req.Address != null) user.Address = req.Address.Trim();
-        if (req.PhotoUrl != null) user.PhotoUrl = req.PhotoUrl.Trim();
+        if (newName != null)
+        {
+            if (newName.Length > 100)
+                return BadRequest(new { error = "Full name must not exceed 100 characters." });
+            user.FullName = newName;
+        }
+
+        if (req?.Phone != null)
+        {
+            var trimmedPhone = req.Phone.Trim();
+            if (trimmedPhone.Length > 30)
+                return BadRequest(new { error = "Phone number must not exceed 30 characters." });
+            user.Phone = trimmedPhone;
+        }
+        if (req?.Address != null) user.Address = req.Address.Trim();
+        if (req?.PhotoUrl != null) user.PhotoUrl = req.PhotoUrl.Trim();
 
         await _userStore.SaveAsync(user);
         return Ok(new
@@ -571,6 +584,17 @@ public class ApiController : ControllerBase
         return Ok(await _notificationStore.ListAllAsync());
     }
 
+    [HttpPatch("notifications/{id}/read")]
+    [HttpPost("notifications/{id}/read")]
+    public async Task<IActionResult> MarkNotificationRead(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return BadRequest(new { error = "Notification ID is required." });
+
+        await _notificationStore.MarkReadAsync(id.Trim());
+        return Ok(new { ok = true, id = id.Trim() });
+    }
+
     // -------------------------------------------------------------
     // Photos & Portfolio Endpoints
     // -------------------------------------------------------------
@@ -578,32 +602,28 @@ public class ApiController : ControllerBase
     public async Task<IActionResult> GetPhotos()
     {
         var photos = new List<object>();
-        try
+        var galleries = await _galleryStore.ListAllAsync();
+        foreach (var g in galleries)
         {
-            var galleries = await _galleryStore.ListAllAsync();
-            foreach (var g in galleries)
+            foreach (var path in g.PhotoPaths)
             {
-                foreach (var path in g.PhotoPaths)
+                var url = _storage.GetReadUrl(path, TimeSpan.FromHours(24));
+                photos.Add(new
                 {
-                    var url = _storage.GetReadUrl(path, TimeSpan.FromHours(24));
-                    photos.Add(new
-                    {
-                        id = path,
-                        title = g.Title,
-                        description = $"{g.Title} photo",
-                        category = "Portfolio",
-                        tags = new[] { "gallery", "portfolio" },
-                        imageUrl = url,
-                        storagePath = path,
-                        clientId = g.ClientId,
-                        bookingId = g.BookingId,
-                        photographerId = "ADMIN",
-                        createdAt = g.CreatedAt.ToString()
-                    });
-                }
+                    id = path,
+                    title = g.Title,
+                    description = $"{g.Title} photo",
+                    category = "Portfolio",
+                    tags = new[] { "gallery", "portfolio" },
+                    imageUrl = url,
+                    storagePath = path,
+                    clientId = g.ClientId,
+                    bookingId = g.BookingId,
+                    photographerId = "ADMIN",
+                    createdAt = g.CreatedAt.ToString()
+                });
             }
         }
-        catch { }
 
         return Ok(photos);
     }
@@ -621,17 +641,22 @@ public class ApiController : ControllerBase
     [HttpPost("photos")]
     public IActionResult CreatePhoto([FromBody] PhotoRequest req)
     {
+        if (req == null || (string.IsNullOrWhiteSpace(req.ImageUrl) && string.IsNullOrWhiteSpace(req.StoragePath)))
+        {
+            return BadRequest(new { error = "An imageUrl or storagePath is required to save a photo." });
+        }
+
         return Ok(new
         {
             photo = new
             {
                 id = Guid.NewGuid().ToString("N")[..8],
-                title = req.Title ?? "Untitled",
-                category = req.Category ?? "General",
-                imageUrl = req.ImageUrl ?? "",
-                storagePath = req.StoragePath ?? "",
-                clientId = req.ClientId ?? "",
-                bookingId = req.BookingId ?? "",
+                title = !string.IsNullOrWhiteSpace(req.Title) ? req.Title.Trim() : "Untitled",
+                category = !string.IsNullOrWhiteSpace(req.Category) ? req.Category.Trim() : "General",
+                imageUrl = req.ImageUrl?.Trim() ?? "",
+                storagePath = req.StoragePath?.Trim() ?? "",
+                clientId = req.ClientId?.Trim() ?? "",
+                bookingId = req.BookingId?.Trim() ?? "",
                 createdAt = DateTime.UtcNow.ToString("o")
             }
         });
@@ -640,7 +665,10 @@ public class ApiController : ControllerBase
     [HttpDelete("photos/{id}")]
     public IActionResult DeletePhoto(string id)
     {
-        return Ok(new { ok = true });
+        if (string.IsNullOrWhiteSpace(id))
+            return BadRequest(new { error = "Photo ID is required." });
+
+        return Ok(new { ok = true, id = id.Trim() });
     }
 
     // -------------------------------------------------------------
@@ -831,9 +859,9 @@ public class ApiController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(token)) return null;
 
-        var user = await _userStore.GetAsync(token);
-        if (user != null) return user;
+        var validatedUid = _auth.ValidateSessionToken(token);
+        if (string.IsNullOrWhiteSpace(validatedUid)) return null;
 
-        return await _userStore.GetByEmailAsync(token);
+        return await _userStore.GetAsync(validatedUid);
     }
 }

@@ -176,26 +176,28 @@ a:hover {
   color: var(--color-white);
 }
 
-/* Forms & Inputs */
+/* Forms & Inputs (High Contrast WCAG AAA) */
 .form-group {
   margin-bottom: 1.25rem;
 }
 
 .form-label {
   display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-bottom: 0.35rem;
-  color: var(--color-black);
+  font-size: 0.96rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: #1A1A1A;
 }
 
 .form-control {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--color-gray-border);
+  padding: 0.8rem 1rem;
+  border: 1.5px solid #7A6855;
   border-radius: var(--radius-sm);
   background-color: var(--color-white);
-  font-size: 0.95rem;
+  color: #1A1A1A;
+  font-size: 1rem;
+  font-weight: 500;
   font-family: inherit;
   transition: var(--transition);
 }
@@ -393,29 +395,30 @@ textarea.form-control {
   border-color: var(--color-black);
 }
 
-/* Status Badges */
+/* Status Badges (High Contrast) */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.25rem 0.75rem;
+  padding: 0.32rem 0.85rem;
   border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  border: 1.5px solid transparent;
 }
 
-.badge-pending { background-color: var(--color-warning-bg); color: var(--color-warning); }
-.badge-confirmed { background-color: var(--color-success-bg); color: var(--color-success); }
-.badge-completed { background-color: var(--color-info-bg); color: var(--color-info); }
-.badge-cancelled { background-color: var(--color-danger-bg); color: var(--color-danger); }
-.badge-rescheduled { background-color: #F3E8FF; color: #7E22CE; }
+.badge-pending { background-color: #FEF3C7; color: #5C3D03; border-color: #D97706; }
+.badge-confirmed { background-color: #D1F2EB; color: #0B4D3E; border-color: #0E6251; }
+.badge-completed { background-color: #D6EAF8; color: #154360; border-color: #1B4F72; }
+.badge-cancelled { background-color: #FADBD8; color: #641E16; border-color: #922B21; }
+.badge-rescheduled { background-color: #EBDEF0; color: #4A235A; border-color: #6C3483; }
 
-.badge-unpaid { background-color: var(--color-danger-bg); color: var(--color-danger); }
-.badge-partiallypaid { background-color: var(--color-warning-bg); color: var(--color-warning); }
-.badge-paid { background-color: var(--color-success-bg); color: var(--color-success); }
-.badge-overdue { background-color: #450A0A; color: #FEE2E2; }
+.badge-unpaid { background-color: #FADBD8; color: #641E16; border-color: #922B21; }
+.badge-partiallypaid { background-color: #FEF3C7; color: #5C3D03; border-color: #D97706; }
+.badge-paid { background-color: #D1F2EB; color: #0B4D3E; border-color: #0E6251; }
+.badge-overdue { background-color: #450A0A; color: #FFFFFF; border-color: #991B1B; }
 
 /* Image Placeholder Boxes (Matching Wireframes) */
 .wireframe-box {

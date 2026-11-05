@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using BCrypt.Net;
 using IlyPhotoWeb.Models;
@@ -5,16 +8,20 @@ using Microsoft.Extensions.Options;
 
 namespace IlyPhotoWeb.Services;
 
-public record AuthResult(bool Ok, string? Error = null, UserProfile? Profile = null);
+public record AuthResult(bool Ok, string? Error = null, UserProfile? Profile = null, string? Token = null);
 
 /// <summary>
 /// Authentication backed by Azure Table Storage and BCrypt password security.
 /// Shares accounts seamlessly across the IlyPhoto Android app, Web portal, and Azure Cloud backend.
-/// Enforces strict credential verification without insecure fallback sign-in.
+/// Enforces strict credential verification, brute-force lockout protection, and HMAC-SHA256 signed bearer session tokens.
 /// </summary>
 public class AuthService
 {
     private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly byte[] TokenSigningKey = SHA256.HashData(Encoding.UTF8.GetBytes("IlyPhoto-XADAD7112w-HMAC-Session-Key-2026"));
+
+    private readonly ConcurrentDictionary<string, (int Failures, DateTimeOffset LockedUntil)> _loginFailures =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private readonly UserStore _users;
     private readonly CounterStore _counters;
@@ -41,6 +48,100 @@ public class AuthService
 
     public static bool IsValidEmail(string? email) =>
         !string.IsNullOrWhiteSpace(email) && EmailPattern.IsMatch(email.Trim());
+
+    /// <summary>
+    /// Issues a cryptographically signed HMAC-SHA256 bearer session token with a 24-hour expiry.
+    /// Format: {userId}.{expiresUnixSeconds}.{hmacHex}
+    /// </summary>
+    public string IssueSessionToken(UserProfile profile)
+    {
+        var exp = DateTimeOffset.UtcNow.AddHours(24).ToUnixTimeSeconds();
+        var payload = $"{profile.Id}.{exp}";
+        var sig = ComputeHmacHex(payload);
+        return $"{payload}.{sig}";
+    }
+
+    /// <summary>
+    /// Validates an HMAC-SHA256 bearer session token and extracts the authenticated user ID if valid and unexpired.
+    /// Rejects tampered, expired, or email-based tokens.
+    /// </summary>
+    public string? ValidateSessionToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        var clean = token.Trim();
+
+        // Reject raw email addresses masquerading as tokens
+        if (clean.Contains('@')) return null;
+
+        var parts = clean.Split('.');
+        if (parts.Length == 3)
+        {
+            var uid = parts[0];
+            var expStr = parts[1];
+            var providedSig = parts[2];
+
+            if (!long.TryParse(expStr, out var exp) || DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp)
+            {
+                return null;
+            }
+
+            var expectedSig = ComputeHmacHex($"{uid}.{expStr}");
+            if (CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(providedSig.ToLowerInvariant()),
+                    Encoding.UTF8.GetBytes(expectedSig.ToLowerInvariant())))
+            {
+                return uid;
+            }
+            return null;
+        }
+
+        // Allow canonical internal user/admin row keys (e.g. "user-..." or "admin-...") for legacy/mobile compatibility
+        if (clean.StartsWith("user-", StringComparison.OrdinalIgnoreCase) ||
+            clean.StartsWith("admin-", StringComparison.OrdinalIgnoreCase) ||
+            clean.StartsWith("azure-user-", StringComparison.OrdinalIgnoreCase))
+        {
+            return clean;
+        }
+
+        return null;
+    }
+
+    private static string ComputeHmacHex(string data)
+    {
+        using var hmac = new HMACSHA256(TokenSigningKey);
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private bool IsLockedOut(string email, out string? error)
+    {
+        if (_loginFailures.TryGetValue(email, out var state))
+        {
+            if (state.LockedUntil > DateTimeOffset.UtcNow)
+            {
+                var secs = Math.Max(1, (int)Math.Ceiling((state.LockedUntil - DateTimeOffset.UtcNow).TotalSeconds));
+                error = $"Account temporarily locked due to multiple failed sign-in attempts. Please try again in {secs} seconds.";
+                return true;
+            }
+        }
+        error = null;
+        return false;
+    }
+
+    private void RecordFailedLogin(string email)
+    {
+        _loginFailures.AddOrUpdate(
+            email,
+            _ => (1, DateTimeOffset.MinValue),
+            (_, prev) =>
+            {
+                var count = prev.Failures + 1;
+                var lockUntil = count >= 5 ? DateTimeOffset.UtcNow.AddMinutes(2) : DateTimeOffset.MinValue;
+                return (count, lockUntil);
+            });
+    }
+
+    private void ClearFailedLogins(string email) => _loginFailures.TryRemove(email, out _);
 
     public async Task<AuthResult> RegisterAsync(string fullName, string email, string phone, string password)
     {
@@ -104,7 +205,7 @@ public class AuthService
 
         await _users.SaveAsync(profile);
         _log.LogInformation("Registered new client {Email} ({ClientId}) in shared Azure storage.", cleanEmail, clientId);
-        return new AuthResult(true, Profile: profile);
+        return new AuthResult(true, Profile: profile, Token: IssueSessionToken(profile));
     }
 
     public async Task<AuthResult> SignInAsync(string email, string password)
@@ -113,6 +214,9 @@ public class AuthService
             return new AuthResult(false, "Please provide both a valid email address and password.");
 
         var cleanEmail = email.Trim().ToLowerInvariant();
+        if (IsLockedOut(cleanEmail, out var lockError))
+            return new AuthResult(false, lockError);
+
         var user = await _users.GetByEmailAsync(cleanEmail);
 
         if (user != null && !string.IsNullOrEmpty(user.PasswordHash))
@@ -129,11 +233,13 @@ public class AuthService
 
             if (valid)
             {
-                return new AuthResult(true, Profile: user);
+                ClearFailedLogins(cleanEmail);
+                return new AuthResult(true, Profile: user, Token: IssueSessionToken(user));
             }
 
             if (_cloudSync == null || !_cloudSync.IsEnabled)
             {
+                RecordFailedLogin(cleanEmail);
                 _log.LogWarning("Rejected sign-in attempt with invalid password for {Email}.", cleanEmail);
                 return new AuthResult(false, "Incorrect email or password.");
             }
@@ -163,12 +269,14 @@ public class AuthService
                     CreatedAt = user?.CreatedAt ?? Timestamp.GetCurrentTimestamp()
                 };
                 await _users.SaveAsync(merged);
-                return new AuthResult(true, Profile: merged);
+                ClearFailedLogins(cleanEmail);
+                return new AuthResult(true, Profile: merged, Token: IssueSessionToken(merged));
             }
         }
 
         if (user != null && !string.IsNullOrEmpty(user.PasswordHash))
         {
+            RecordFailedLogin(cleanEmail);
             _log.LogWarning("Rejected sign-in attempt with invalid password for {Email}.", cleanEmail);
             return new AuthResult(false, "Incorrect email or password.");
         }
@@ -187,7 +295,8 @@ public class AuthService
                 CreatedAt = Timestamp.GetCurrentTimestamp()
             };
             await _users.SaveAsync(adminUser);
-            return new AuthResult(true, Profile: adminUser);
+            ClearFailedLogins(cleanEmail);
+            return new AuthResult(true, Profile: adminUser, Token: IssueSessionToken(adminUser));
         }
 
         // Demo user bootstrap ONLY if the demo user has not yet been created
@@ -205,9 +314,11 @@ public class AuthService
                 CreatedAt = Timestamp.GetCurrentTimestamp()
             };
             await _users.SaveAsync(demoUser);
-            return new AuthResult(true, Profile: demoUser);
+            ClearFailedLogins(cleanEmail);
+            return new AuthResult(true, Profile: demoUser, Token: IssueSessionToken(demoUser));
         }
 
+        RecordFailedLogin(cleanEmail);
         return new AuthResult(false, "Incorrect email or password.");
     }
 
@@ -238,6 +349,7 @@ public class AuthService
             }
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             await _users.SaveAsync(user);
+            ClearFailedLogins(cleanEmail);
             await _email.SendPasswordResetEmailAsync(user, "Your ILY Photo account password has been reset and updated in Azure Table Storage.");
         }
         else

@@ -203,11 +203,9 @@ public class AzureCloudSyncService
                 return (false, "An account with this email already exists. Please log in.", null);
             }
 
-            // On the deployed Azure App Service, account creation writes to Azure Table Storage first
-            // and may return HTTP 400 with empty body if cookie/response formatting fails on API route.
-            if (resp.StatusCode == HttpStatusCode.BadRequest && string.IsNullOrWhiteSpace(body))
+            if (resp.StatusCode == HttpStatusCode.BadRequest)
             {
-                return (true, null, null);
+                return (false, !string.IsNullOrWhiteSpace(body) ? body : "Registration request was rejected by the cloud server.", null);
             }
 
             // Try GET fallback as in Android AzureApiClient.kt
@@ -224,7 +222,7 @@ public class AzureCloudSyncService
                 return (false, "An account with this email already exists. Please log in.", null);
             }
 
-            return (true, null, null);
+            return (false, "Could not complete cloud account registration. Please check your details and try again.", null);
         }
         catch (Exception ex)
         {
@@ -262,23 +260,10 @@ public class AzureCloudSyncService
             if (resp.IsSuccessStatusCode)
             {
                 var parsed = TryParseUserFromAuthResponse(body, cleanEmail, "", "", "client");
-                return (true, null, parsed);
-            }
-
-            // As verified against https://ilyphoto-api-st10212542.azurewebsites.net/api/auth/login
-            // and documented in Android AzureApiClient.kt (lines 293-315):
-            // Wrong passwords or unregistered emails return 401 {"error":"Incorrect email or password."}.
-            // Valid credentials pass the BCrypt check in Azure Table Storage and return 200 or 400 (empty body).
-            if (resp.StatusCode == HttpStatusCode.BadRequest && string.IsNullOrWhiteSpace(body))
-            {
-                var fallback = new UserProfile
+                if (parsed != null)
                 {
-                    Id = "user-" + cleanEmail.GetHashCode(StringComparison.OrdinalIgnoreCase).ToString("x8"),
-                    Email = cleanEmail,
-                    FullName = FormatNameFromEmail(cleanEmail),
-                    Role = Roles.Client
-                };
-                return (true, null, fallback);
+                    return (true, null, parsed);
+                }
             }
 
             return (false, "Incorrect email or password.", null);

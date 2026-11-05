@@ -103,18 +103,55 @@ export const AuthProvider = ({ children }) => {
 
   // Strict Authentication: Rejects invalid credentials and never signs in with a cached profile on failure
   const loginAsClient = async (email, password) => {
-    const res = await AzureApi.login(email, password);
+    try {
+      const res = await AzureApi.login(email, password);
+      if (!res || !res.token) {
+        throw new Error('Authentication failed. Please check your email and password.');
+      }
+      localStorage.setItem('ily_azure_token', res.token);
+      const resolvedRole = res.user?.role === 'photographer' || res.user?.role === 'admin' ? 'admin' : 'client';
+      setRole(resolvedRole);
+      setCurrentUser({
+        id: res.user?.uid || res.user?.id,
+        clientId: res.user?.clientId,
+        name: res.user?.displayName || res.user?.fullName || email.split('@')[0],
+        email: res.user?.email || email
+      });
+      await refreshBookingsFromCloud();
+      return true;
+    } catch (err) {
+      localStorage.removeItem('ily_azure_token');
+      localStorage.removeItem('ily_user');
+      setCurrentUser(null);
+      setRole('visitor');
+      throw err;
+    }
+  };
+
+  const registerClient = async ({ fullName, email, password, phone = '' }) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (fullName || '').trim();
+    if (!cleanName) throw new Error('Please enter your full name.');
+    if (!cleanEmail || !cleanEmail.includes('@')) throw new Error('Please enter a valid email address.');
+    if (!password || password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+    const res = await AzureApi.register({
+      displayName: cleanName,
+      fullName: cleanName,
+      email: cleanEmail,
+      password,
+      phone: (phone || '').trim()
+    });
     if (!res || !res.token) {
-      throw new Error('Authentication failed. Please check your email and password.');
+      throw new Error('Account registration could not be verified.');
     }
     localStorage.setItem('ily_azure_token', res.token);
-    const resolvedRole = res.user?.role === 'photographer' || res.user?.role === 'admin' ? 'admin' : 'client';
-    setRole(resolvedRole);
+    setRole('client');
     setCurrentUser({
       id: res.user?.uid || res.user?.id,
       clientId: res.user?.clientId,
-      name: res.user?.displayName || res.user?.fullName || email.split('@')[0],
-      email: res.user?.email || email
+      name: res.user?.displayName || res.user?.fullName || cleanName,
+      email: res.user?.email || cleanEmail
     });
     await refreshBookingsFromCloud();
     return true;
@@ -122,23 +159,31 @@ export const AuthProvider = ({ children }) => {
 
   const loginAsAdmin = async (username, password) => {
     const email = username.includes('@') ? username.trim() : `${username.trim()}@ilyphoto.co.za`;
-    const res = await AzureApi.login(email, password);
-    if (!res || !res.token) {
-      throw new Error('Administrator authentication failed.');
+    try {
+      const res = await AzureApi.login(email, password);
+      if (!res || !res.token) {
+        throw new Error('Administrator authentication failed.');
+      }
+      if (res.user?.role !== 'admin' && res.user?.role !== 'photographer') {
+        throw new Error('This account does not have Administrator privileges.');
+      }
+      localStorage.setItem('ily_azure_token', res.token);
+      setRole('admin');
+      setCurrentUser({
+        id: res.user?.uid || res.user?.id,
+        clientId: res.user?.clientId || 'ADMIN',
+        name: res.user?.displayName || res.user?.fullName || 'Ily Admin',
+        email: res.user?.email || email
+      });
+      await refreshBookingsFromCloud();
+      return true;
+    } catch (err) {
+      localStorage.removeItem('ily_azure_token');
+      localStorage.removeItem('ily_user');
+      setCurrentUser(null);
+      setRole('visitor');
+      throw err;
     }
-    if (res.user?.role !== 'admin' && res.user?.role !== 'photographer') {
-      throw new Error('This account does not have Administrator privileges.');
-    }
-    localStorage.setItem('ily_azure_token', res.token);
-    setRole('admin');
-    setCurrentUser({
-      id: res.user?.uid || res.user?.id,
-      clientId: res.user?.clientId || 'ADMIN',
-      name: res.user?.displayName || res.user?.fullName || 'Ily Admin',
-      email: res.user?.email || email
-    });
-    await refreshBookingsFromCloud();
-    return true;
   };
 
   const logout = () => {
@@ -285,6 +330,7 @@ export const AuthProvider = ({ children }) => {
       refreshBookingsFromCloud,
       switchRole,
       loginAsClient,
+      registerClient,
       loginAsAdmin,
       logout,
       bookings,
