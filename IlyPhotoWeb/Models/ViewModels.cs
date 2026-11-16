@@ -32,6 +32,18 @@ public class RegisterViewModel
     public string ConfirmPassword { get; set; } = "";
 }
 
+public class ForgotPasswordViewModel
+{
+    [Required(ErrorMessage = "Please enter your registered email address."), EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+    public string Email { get; set; } = "";
+
+    [Required(ErrorMessage = "Please enter a new password."), StringLength(100, MinimumLength = 6, ErrorMessage = "Your new password must be at least 6 characters.")]
+    public string NewPassword { get; set; } = "";
+
+    [Required(ErrorMessage = "Please confirm your new password."), Compare(nameof(NewPassword), ErrorMessage = "The passwords do not match.")]
+    public string ConfirmNewPassword { get; set; } = "";
+}
+
 // ---------- Client ----------
 public class BookingViewModel
 {

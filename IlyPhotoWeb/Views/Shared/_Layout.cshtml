@@ -10,10 +10,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - ILY PHOTO</title>
-    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            window.applyTheme = function(theme) {
+                var isDark = theme === 'dark';
+                var root = document.documentElement;
+                var body = document.body;
+                if (isDark) {
+                    root.classList.add('theme-dark');
+                    if (body) body.classList.add('theme-dark');
+                } else {
+                    root.classList.remove('theme-dark');
+                    if (body) body.classList.remove('theme-dark');
+                }
+                var buttons = document.querySelectorAll('.theme-toggle-btn');
+                buttons.forEach(function(btn) {
+                    btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+                    btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+                });
+            };
+
+            window.toggleDarkMode = function() {
+                var root = document.documentElement;
+                var body = document.body;
+                var isDark = root.classList.contains('theme-dark') || (body && body.classList.contains('theme-dark'));
+                var next = isDark ? 'light' : 'dark';
+                try {
+                    localStorage.setItem('ily_theme', next);
+                } catch(e) {}
+                window.applyTheme(next);
+            };
+
+            try {
+                var savedTheme = localStorage.getItem('ily_theme');
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var saved = localStorage.getItem('ily_theme') || 'light';
+                window.applyTheme(saved);
+            });
+        })();
+    </script>
 </head>
 <body>
     @if (role == "Admin")
@@ -125,7 +169,7 @@
         <div id="lightboxCaption" class="lightbox-caption"></div>
     </div>
 
-    <script src="~/js/site.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

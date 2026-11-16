@@ -37,12 +37,24 @@
                     </p>
 
                     <div style="margin-bottom: 1.5rem;">
-                        <span style="font-size: 2.4rem; font-weight: 800; color: @(isWedding ? "#FAF7F2" : "#4A3525");">
-                            @Format.Rand(srv.BasePrice)
-                        </span>
-                        <span style="font-size: 0.85rem; font-weight: 500; color: @(isWedding ? "#BBB" : "#777");">
-                            @(srv.HourlyOnly ? " / hour" : srv.Name.Contains("Matric", StringComparison.OrdinalIgnoreCase) ? " / 2-3 hr package" : " (base package)")
-                        </span>
+                        @if (srv.BasePrice == 0)
+                        {
+                            <span style="font-size: 2.1rem; font-weight: 800; color: #2E7D32;">
+                                100% Subsidized
+                            </span>
+                            <span style="font-size: 0.85rem; font-weight: 500; color: #777; display: block; margin-top: 0.25rem;">
+                                Pro-Bono for Cape Flats NPOs & Matric Ball Sponsorships
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="font-size: 2.4rem; font-weight: 800; color: @(isWedding ? "#FAF7F2" : "#4A3525");">
+                                @Format.Rand(srv.BasePrice)
+                            </span>
+                            <span style="font-size: 0.85rem; font-weight: 500; color: @(isWedding ? "#BBB" : "#777");">
+                                @(srv.HourlyOnly ? " / hour" : srv.Name.Contains("Matric", StringComparison.OrdinalIgnoreCase) ? " / 2-3 hr package" : " (base package)")
+                            </span>
+                        }
                     </div>
 
                     @if (!srv.HourlyOnly && srv.ExtraHourPrice > 0)

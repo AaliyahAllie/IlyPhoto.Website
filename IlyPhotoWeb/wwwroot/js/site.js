@@ -170,3 +170,95 @@ function closeLightbox(e) {
     const modal = document.getElementById('imageLightboxModal');
     if (modal) modal.style.display = 'none';
 }
+
+// ==========================================================================
+// Theme Management (Dark Mode & Light Mode)
+// ==========================================================================
+window.initTheme = function() {
+    const savedTheme = localStorage.getItem('ily_theme') || 'light';
+    window.applyTheme(savedTheme);
+};
+
+window.toggleDarkMode = function() {
+    const current = document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    try {
+        localStorage.setItem('ily_theme', next);
+    } catch(e) {}
+    window.applyTheme(next);
+};
+
+window.applyTheme = function(theme) {
+    const isDark = theme === 'dark';
+    if (isDark) {
+        document.documentElement.classList.add('theme-dark');
+        if (document.body) document.body.classList.add('theme-dark');
+    } else {
+        document.documentElement.classList.remove('theme-dark');
+        if (document.body) document.body.classList.remove('theme-dark');
+    }
+
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+        btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+        btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+    });
+};
+
+// ==========================================================================
+// Language Options (English / Afrikaans)
+// ==========================================================================
+const translations = {
+    en: {
+        nav_home: "Home",
+        nav_about: "About & NGO",
+        nav_portfolio: "Portfolio",
+        nav_pricing: "Pricing",
+        nav_contact: "Contact Us",
+        nav_signin: "Sign In",
+        nav_register: "Register",
+        welcome_back: "Welcome Back",
+        portal_subtitle: "CLIENT & PHOTOGRAPHER PORTAL"
+    },
+    af: {
+        nav_home: "Tuis",
+        nav_about: "Oor Ons & NPO",
+        nav_portfolio: "Portefeulje",
+        nav_pricing: "Pakkette & Pryse",
+        nav_contact: "Kontak Ons",
+        nav_signin: "Teken In",
+        nav_register: "Registreer",
+        welcome_back: "Welkom Terug",
+        portal_subtitle: "KLIËNT & FOTOGRAAF PORTAAL"
+    }
+};
+
+function initLanguage() {
+    const savedLang = localStorage.getItem('ily_lang') || 'en';
+    setLanguage(savedLang);
+}
+
+function setLanguage(lang) {
+    localStorage.setItem('ily_lang', lang);
+    const dict = translations[lang] || translations.en;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) {
+            el.textContent = dict[key];
+        }
+    });
+    document.querySelectorAll('.lang-selector').forEach(sel => {
+        sel.value = lang;
+    });
+}
+
+// Auto-run on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        initLanguage();
+    });
+} else {
+    initTheme();
+    initLanguage();
+}
+

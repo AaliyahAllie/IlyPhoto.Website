@@ -9,10 +9,11 @@ public class CounterStore
 {
     private readonly TableClient _table;
 
+    protected CounterStore() { _table = null!; }
     public CounterStore(AzureTableContext context) => _table = context.Counters;
 
     /// <summary>Atomically increments counters/{name} and returns the new value.</summary>
-    public async Task<long> NextAsync(string name, long start)
+    public virtual async Task<long> NextAsync(string name, long start)
     {
         try
         {
@@ -38,9 +39,10 @@ public class UserStore
 {
     private readonly TableClient _table;
 
+    protected UserStore() { _table = null!; }
     public UserStore(AzureTableContext context) => _table = context.Users;
 
-    public async Task<UserProfile?> GetAsync(string uid)
+    public virtual async Task<UserProfile?> GetAsync(string uid)
     {
         try
         {
@@ -53,7 +55,7 @@ public class UserStore
         }
     }
 
-    public async Task<UserProfile?> GetByEmailAsync(string email)
+    public virtual async Task<UserProfile?> GetByEmailAsync(string email)
     {
         var cleanEmail = email.Trim().ToLowerInvariant();
         try
@@ -71,7 +73,7 @@ public class UserStore
         return null;
     }
 
-    public async Task<UserProfile?> GetByClientIdAsync(string clientId)
+    public virtual async Task<UserProfile?> GetByClientIdAsync(string clientId)
     {
         try
         {
@@ -88,7 +90,7 @@ public class UserStore
         return null;
     }
 
-    public async Task<List<UserProfile>> ListClientsAsync()
+    public virtual async Task<List<UserProfile>> ListClientsAsync()
     {
         var list = new List<UserProfile>();
         try
@@ -106,7 +108,7 @@ public class UserStore
         return list.OrderBy(u => u.ClientId, StringComparer.Ordinal).ToList();
     }
 
-    public async Task SaveAsync(UserProfile p)
+    public virtual async Task SaveAsync(UserProfile p)
     {
         if (string.IsNullOrWhiteSpace(p.Id)) p.Id = Guid.NewGuid().ToString("N");
         var entity = new TableEntity("user", p.Id)
@@ -192,13 +194,14 @@ public class BookingStore
     private readonly TableClient _table;
     private readonly TableClient _blockedTable;
 
+    protected BookingStore() { _table = null!; _blockedTable = null!; }
     public BookingStore(AzureTableContext context)
     {
         _table = context.Bookings;
         _blockedTable = context.BlockedDates;
     }
 
-    public async Task<Booking?> GetAsync(string id)
+    public virtual async Task<Booking?> GetAsync(string id)
     {
         try
         {
@@ -211,7 +214,7 @@ public class BookingStore
         }
     }
 
-    public async Task<string> CreateAsync(Booking b)
+    public virtual async Task<string> CreateAsync(Booking b)
     {
         if (string.IsNullOrWhiteSpace(b.Id)) b.Id = "book-" + Guid.NewGuid().ToString("N")[..8];
         var entity = new TableEntity("booking", b.Id)
@@ -255,7 +258,7 @@ public class BookingStore
         return b.Id;
     }
 
-    public async Task<List<Booking>> ListAllAsync()
+    public virtual async Task<List<Booking>> ListAllAsync()
     {
         var list = new List<Booking>();
         try
@@ -269,7 +272,7 @@ public class BookingStore
         return list.OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList();
     }
 
-    public async Task<List<Booking>> ListByClientAsync(string clientId)
+    public virtual async Task<List<Booking>> ListByClientAsync(string clientId)
     {
         var list = new List<Booking>();
         try
@@ -287,20 +290,20 @@ public class BookingStore
         return list.OrderByDescending(b => b.Date).ToList();
     }
 
-    public async Task<List<Booking>> ListByDateRangeAsync(string fromIso, string toIso)
+    public virtual async Task<List<Booking>> ListByDateRangeAsync(string fromIso, string toIso)
     {
         var all = await ListAllAsync();
         return all.Where(b => string.Compare(b.Date, fromIso, StringComparison.Ordinal) >= 0 &&
                               string.Compare(b.Date, toIso, StringComparison.Ordinal) <= 0).ToList();
     }
 
-    public async Task<bool> HasConfirmedOnDateAsync(string dateIso, string? exceptBookingId = null)
+    public virtual async Task<bool> HasConfirmedOnDateAsync(string dateIso, string? exceptBookingId = null)
     {
         var all = await ListAllAsync();
         return all.Any(b => b.Date == dateIso && b.Status == BookingStatus.Confirmed && b.Id != exceptBookingId);
     }
 
-    public async Task SetStatusAsync(string id, string status)
+    public virtual async Task SetStatusAsync(string id, string status)
     {
         var b = await GetAsync(id);
         if (b != null)
@@ -310,7 +313,7 @@ public class BookingStore
         }
     }
 
-    public async Task RescheduleAsync(string id, string date, string start, string end, int hours, double total)
+    public virtual async Task RescheduleAsync(string id, string date, string start, string end, int hours, double total)
     {
         var b = await GetAsync(id);
         if (b != null)
@@ -325,7 +328,7 @@ public class BookingStore
     }
 
     // ---- blocked dates ----
-    public async Task<bool> IsBlockedAsync(string dateIso)
+    public virtual async Task<bool> IsBlockedAsync(string dateIso)
     {
         try
         {
@@ -338,7 +341,7 @@ public class BookingStore
         }
     }
 
-    public async Task<List<BlockedDate>> ListBlockedAsync(string fromIso, string toIso)
+    public virtual async Task<List<BlockedDate>> ListBlockedAsync(string fromIso, string toIso)
     {
         var list = new List<BlockedDate>();
         try
@@ -362,7 +365,7 @@ public class BookingStore
         return list.OrderBy(b => b.Date).ToList();
     }
 
-    public async Task BlockAsync(string dateIso, string reason)
+    public virtual async Task BlockAsync(string dateIso, string reason)
     {
         var entity = new TableEntity("blockedDate", dateIso)
         {
@@ -373,7 +376,7 @@ public class BookingStore
         await _blockedTable.UpsertEntityAsync(entity, TableUpdateMode.Replace);
     }
 
-    public async Task UnblockAsync(string dateIso)
+    public virtual async Task UnblockAsync(string dateIso)
     {
         try
         {
@@ -564,6 +567,16 @@ public class ServiceStore
             return Defaults();
         }
 
+        if (list.All(s => !s.Name.Contains("NGO") && !s.Name.Contains("Community")))
+        {
+            var ngo = Defaults().FirstOrDefault(s => s.Id == "ngo-outreach");
+            if (ngo != null)
+            {
+                await SaveAsync(ngo);
+                list.Add(ngo);
+            }
+        }
+
         return list.OrderBy(s => s.SortOrder).ToList();
     }
 
@@ -654,6 +667,17 @@ public class ServiceStore
             ExtraHourPrice = 300,
             HourlyOnly = true,
             SortOrder = 4
+        },
+        new()
+        {
+            Id = "community-ngo",
+            Name = "Community & NGO Outreach",
+            Description = "Subsidized visual documentation for registered Cape Flats non-profit organizations and youth outreach initiatives.",
+            BasePrice = 0,
+            IncludedHours = 3,
+            ExtraHourPrice = 0,
+            HourlyOnly = false,
+            SortOrder = 5
         }
     };
 }
@@ -662,6 +686,7 @@ public class ReviewStore
 {
     private readonly TableClient _table;
 
+    protected ReviewStore() { _table = null!; }
     public ReviewStore(AzureTableContext context) => _table = context.Reviews;
 
     public async Task CreateAsync(Review r)
@@ -749,6 +774,7 @@ public class EnquiryStore
 {
     private readonly TableClient _table;
 
+    protected EnquiryStore() { _table = null!; }
     public EnquiryStore(AzureTableContext context) => _table = context.Enquiries;
 
     public async Task CreateAsync(ContactEnquiry e)

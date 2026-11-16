@@ -169,12 +169,26 @@ public class ApiController : ControllerBase
     public class ResetPasswordRequest
     {
         public string Email { get; set; } = "";
+        public string? NewPassword { get; set; }
     }
 
     [HttpPost("auth/reset-password")]
-    public IActionResult ResetPassword([FromBody] ResetPasswordRequest req)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
     {
-        return Ok(new { ok = true, message = "If the account exists, a reset link has been sent." });
+        var email = (req.Email ?? "").Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(new { error = "Please provide your registered email address." });
+        }
+
+        var newPass = !string.IsNullOrWhiteSpace(req.NewPassword) ? req.NewPassword : "Password123!";
+        var result = await _auth.ResetPasswordAsync(email, newPass);
+        if (!result.Ok)
+        {
+            return NotFound(new { error = result.Error ?? "No registered account was found with that email address." });
+        }
+
+        return Ok(new { ok = true, message = "Password updated successfully in Azure Table Storage." });
     }
 
     // -------------------------------------------------------------
@@ -261,6 +275,12 @@ public class ApiController : ControllerBase
     public class StatusRequest
     {
         public string Status { get; set; } = "";
+        public string? EventDate { get; set; }
+        public string? EventTime { get; set; }
+        public string? EndTime { get; set; }
+        public string? EventLocation { get; set; }
+        public string? Requirements { get; set; }
+        public int? DurationHours { get; set; }
     }
 
     [HttpPatch("bookings/{id}/status")]
@@ -269,9 +289,72 @@ public class ApiController : ControllerBase
         var booking = await _bookingStore.GetAsync(id);
         if (booking == null) return NotFound(new { error = "Booking not found" });
 
-        booking.Status = req.Status;
+        if (!string.IsNullOrWhiteSpace(req.Status)) booking.Status = req.Status.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EventDate)) booking.Date = req.EventDate.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EventTime)) booking.StartTime = req.EventTime.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EndTime)) booking.EndTime = req.EndTime.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EventLocation)) booking.Location = req.EventLocation.Trim();
+        if (req.Requirements != null) booking.Notes = req.Requirements.Trim();
+        if (req.DurationHours.HasValue && req.DurationHours.Value > 0) booking.Hours = req.DurationHours.Value;
+
         await _bookingStore.CreateAsync(booking);
-        return Ok(new { booking = ToBookingJson(booking) });
+        return Ok(new { success = true, booking = ToBookingJson(booking) });
+    }
+
+    public class UpdateBookingRequest
+    {
+        public string? EventDate { get; set; }
+        public string? EventTime { get; set; }
+        public string? EndTime { get; set; }
+        public int? DurationHours { get; set; }
+        public string? EventLocation { get; set; }
+        public string? Requirements { get; set; }
+        public string? ServiceName { get; set; }
+        public int? ServicePrice { get; set; }
+        public string? Status { get; set; }
+        public string? InvoiceNumber { get; set; }
+        public string? InvoiceStatus { get; set; }
+    }
+
+    [HttpPut("bookings/{id}")]
+    public async Task<IActionResult> UpdateBooking(string id, [FromBody] UpdateBookingRequest req)
+    {
+        var booking = await _bookingStore.GetAsync(id);
+        if (booking == null) return NotFound(new { error = "Booking not found" });
+
+        if (!string.IsNullOrWhiteSpace(req.EventDate)) booking.Date = req.EventDate.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EventTime)) booking.StartTime = req.EventTime.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EndTime)) booking.EndTime = req.EndTime.Trim();
+        if (req.DurationHours.HasValue && req.DurationHours.Value > 0) booking.Hours = req.DurationHours.Value;
+        if (!string.IsNullOrWhiteSpace(req.EventLocation)) booking.Location = req.EventLocation.Trim();
+        if (req.Requirements != null) booking.Notes = req.Requirements.Trim();
+        if (!string.IsNullOrWhiteSpace(req.ServiceName)) booking.EventType = req.ServiceName.Trim();
+        if (req.ServicePrice.HasValue) booking.EstimatedTotal = req.ServicePrice.Value;
+        if (!string.IsNullOrWhiteSpace(req.Status)) booking.Status = req.Status.Trim();
+        if (!string.IsNullOrWhiteSpace(req.InvoiceNumber)) booking.InvoiceNumber = req.InvoiceNumber.Trim();
+        if (!string.IsNullOrWhiteSpace(req.InvoiceStatus)) booking.InvoiceStatus = req.InvoiceStatus.Trim();
+
+        await _bookingStore.CreateAsync(booking);
+        return Ok(new { success = true, booking = ToBookingJson(booking) });
+    }
+
+    [HttpPatch("bookings/{id}/reschedule")]
+    [HttpPost("bookings/{id}/reschedule")]
+    public async Task<IActionResult> RescheduleBooking(string id, [FromBody] UpdateBookingRequest req)
+    {
+        var booking = await _bookingStore.GetAsync(id);
+        if (booking == null) return NotFound(new { error = "Booking not found" });
+
+        if (!string.IsNullOrWhiteSpace(req.EventDate)) booking.Date = req.EventDate.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EventTime)) booking.StartTime = req.EventTime.Trim();
+        if (!string.IsNullOrWhiteSpace(req.EndTime)) booking.EndTime = req.EndTime.Trim();
+        if (req.DurationHours.HasValue && req.DurationHours.Value > 0) booking.Hours = req.DurationHours.Value;
+        if (!string.IsNullOrWhiteSpace(req.EventLocation)) booking.Location = req.EventLocation.Trim();
+        if (req.Requirements != null) booking.Notes = req.Requirements.Trim();
+        booking.Status = !string.IsNullOrWhiteSpace(req.Status) ? req.Status.Trim() : BookingStatus.Rescheduled;
+
+        await _bookingStore.CreateAsync(booking);
+        return Ok(new { success = true, message = "Booking rescheduled and saved to Azure Table Storage.", booking = ToBookingJson(booking) });
     }
 
     public class InvoiceStatusRequest

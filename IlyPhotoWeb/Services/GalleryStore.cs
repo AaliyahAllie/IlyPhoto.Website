@@ -14,6 +14,7 @@ public class GalleryStore
     private readonly TableClient _table;
     private readonly IPhotoStorage _photos;
 
+    protected GalleryStore() { _table = null!; _photos = null!; }
     public GalleryStore(AzureTableContext context, IPhotoStorage photos)
     {
         _table = context.Galleries;

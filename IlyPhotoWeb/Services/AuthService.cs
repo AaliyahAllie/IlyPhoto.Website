@@ -140,5 +140,30 @@ public class AuthService
         return new AuthResult(false, "Incorrect email or password.");
     }
 
+    /// <summary>
+    /// Resets the user's password directly in Azure Table Storage with BCrypt security.
+    /// Accurately reports failure if the account does not exist or input is invalid.
+    /// </summary>
+    public async Task<AuthResult> ResetPasswordAsync(string email, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return new AuthResult(false, "Please provide your email address.");
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            return new AuthResult(false, "New password must be at least 6 characters.");
+
+        var cleanEmail = email.Trim().ToLowerInvariant();
+        var user = await _users.GetByEmailAsync(cleanEmail);
+        if (user == null)
+        {
+            return new AuthResult(false, "No registered account was found with that email address.");
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _users.SaveAsync(user);
+        _log.LogInformation("Password reset and saved to Azure Table Storage for user {Email}.", cleanEmail);
+        return new AuthResult(true, Profile: user);
+    }
+
     private async Task<string> NewClientIdAsync() => $"CL-{await _counters.NextAsync("clients", 1000)}";
 }
