@@ -6,10 +6,10 @@ namespace IlyPhotoWeb.Models;
 public class LoginViewModel
 {
     [Required(ErrorMessage = "Please enter your email address."), EmailAddress]
-    public string Email { get; set; } = "admin@ilyphoto.co.za";
+    public string Email { get; set; } = "";
 
     [Required(ErrorMessage = "Please enter your password.")]
-    public string Password { get; set; } = "Password123!";
+    public string Password { get; set; } = "";
 
     public string? ReturnUrl { get; set; }
 }

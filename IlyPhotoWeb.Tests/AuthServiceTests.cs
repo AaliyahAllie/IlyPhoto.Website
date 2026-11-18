@@ -207,4 +207,48 @@ public class AuthServiceTests
         Assert.True(BCrypt.Net.BCrypt.Verify("BrandNewSecretPassword123!", updated.PasswordHash));
         _userStoreMock.Verify(s => s.SaveAsync(It.IsAny<UserProfile>()), Times.Once);
     }
+
+    [Fact]
+    public async Task RegisterAsync_NeverReusesExistingClientId()
+    {
+        // Arrange: existing clients already hold CL-1001 and CL-1030
+        _userStoreMock.Setup(s => s.GetByEmailAsync("brandnew@example.com"))
+            .ReturnsAsync((UserProfile?)null);
+        _userStoreMock.Setup(s => s.ListClientsAsync())
+            .ReturnsAsync(new List<UserProfile>
+            {
+                new UserProfile { Id = "u1", ClientId = "CL-1001", Email = "aaliyah@example.com", Role = Roles.Client },
+                new UserProfile { Id = "u2", ClientId = "CL-1030", Email = "other@example.com", Role = Roles.Client }
+            });
+        _counterStoreMock.Setup(c => c.NextAsync("clients", 1030))
+            .ReturnsAsync(1031);
+        _userStoreMock.Setup(s => s.SaveAsync(It.IsAny<UserProfile>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _authService.RegisterAsync("Emily Rain", "brandnew@example.com", "0821234567", "SecurePass123!");
+
+        // Assert
+        Assert.True(result.Ok);
+        Assert.NotNull(result.Profile);
+        Assert.Equal("CL-1031", result.Profile.ClientId);
+        Assert.NotEqual("CL-1001", result.Profile.ClientId);
+    }
+
+    [Fact]
+    public async Task SignInAsync_DoesNotAllowDefaultPasswordBypassOnExistingHash()
+    {
+        var user = new UserProfile
+        {
+            Id = "user-real-2",
+            Email = "secure@example.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("MyRealSecret99!"),
+            Role = Roles.Client
+        };
+        _userStoreMock.Setup(s => s.GetByEmailAsync("secure@example.com")).ReturnsAsync(user);
+
+        var result = await _authService.SignInAsync("secure@example.com", "Password123!");
+
+        Assert.False(result.Ok);
+    }
 }

@@ -86,8 +86,8 @@ public class AuthService
                 }
             }
 
-            // Fallback for default demo accounts
-            if (!valid && password == "Password123!")
+            // Fallback ONLY for legacy accounts that have no password hash saved yet
+            if (!valid && string.IsNullOrEmpty(user.PasswordHash) && password == "Password123!")
             {
                 valid = true;
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
@@ -196,5 +196,30 @@ public class AuthService
         return true;
     }
 
-    private async Task<string> NewClientIdAsync() => $"CL-{await _counters.NextAsync("clients", 1000)}";
+    private async Task<string> NewClientIdAsync()
+    {
+        var existingClients = await _users.ListClientsAsync() ?? new List<UserProfile>();
+        var usedIds = new HashSet<string>(
+            existingClients.Where(c => !string.IsNullOrWhiteSpace(c.ClientId)).Select(c => c.ClientId),
+            StringComparer.OrdinalIgnoreCase);
+
+        long maxExisting = 1000;
+        foreach (var cid in usedIds)
+        {
+            if (cid.StartsWith("CL-", StringComparison.OrdinalIgnoreCase) &&
+                long.TryParse(cid[3..], out var num) && num > maxExisting)
+            {
+                maxExisting = num;
+            }
+        }
+
+        var next = await _counters.NextAsync("clients", maxExisting);
+        var candidate = $"CL-{next}";
+        while (usedIds.Contains(candidate))
+        {
+            next = await _counters.NextAsync("clients", Math.Max(next, maxExisting));
+            candidate = $"CL-{next}";
+        }
+        return candidate;
+    }
 }

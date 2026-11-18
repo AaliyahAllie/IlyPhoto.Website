@@ -18,13 +18,16 @@
       </div>
     }
 
-    <div asp-validation-summary="All" class="form-errors" style="color: #A93226; font-size: 0.88rem; margin-bottom: 1rem;"></div>
+    @if (!ViewData.ModelState.IsValid)
+    {
+      <div asp-validation-summary="All" class="form-errors" style="color: #A93226; font-size: 0.88rem; margin-bottom: 1rem;"></div>
+    }
 
     <form method="post" asp-controller="Account" asp-action="Login">
       <input type="hidden" asp-for="ReturnUrl" />
       <div class="form-group" style="margin-bottom: 1.25rem;">
         <label asp-for="Email" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.35rem; color: #4A3525;">Email Address</label>
-        <input asp-for="Email" type="email" required autocomplete="username" class="form-control" placeholder="client@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.95rem;"/>
+        <input asp-for="Email" type="email" required autocomplete="username" class="form-control" placeholder="name@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.95rem;"/>
       </div>
 
       <div class="form-group" style="margin-bottom: 1.5rem;">
@@ -35,27 +38,8 @@
         <input asp-for="Password" id="passwordField" type="password" required autocomplete="current-password" class="form-control" placeholder="••••••••" style="width: 100%; padding: 0.75rem; border: 1px solid #D1C7B7; border-radius: 4px; font-size: 0.95rem;"/>
       </div>
 
-      <div style="margin-bottom: 1.25rem; background: #FAF7F2; padding: 0.75rem; border-radius: 6px; border: 1px dashed #D1C7B7;">
-        <p style="font-size: 0.75rem; font-weight: 700; color: #7A6B5D; margin: 0 0 0.4rem 0; text-transform: uppercase;">Default Administrator Logins:</p>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button type="button" onclick="setAdmin('admin@ilyphoto.co.za')" style="font-size: 0.75rem; background: #EFE7DA; border: 1px solid #D1C7B7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: #4A3525; font-weight: 600;">
-            admin@ilyphoto.co.za
-          </button>
-          <button type="button" onclick="setAdmin('ayshaallie23@gmail.com')" style="font-size: 0.75rem; background: #EFE7DA; border: 1px solid #D1C7B7; border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer; color: #4A3525; font-weight: 600;">
-            ayshaallie23@gmail.com
-          </button>
-        </div>
-      </div>
-
       <button class="btn btn-primary btn-block" type="submit" style="width: 100%; padding: 0.85rem; font-size: 1rem; font-weight: 700; cursor: pointer;">Sign In</button>
     </form>
-
-    <script>
-      function setAdmin(email) {
-        document.querySelector('input[name="Email"]').value = email;
-        document.getElementById('passwordField').value = 'Password123!';
-      }
-    </script>
 
     <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #ECE4D8; padding-top: 1.25rem; font-size: 0.88rem; color: #666;">
       Don't have an account yet? <a asp-action="Register" style="color: #4A3525; font-weight: 700; text-decoration: underline;">Create Client Account</a>

@@ -50,8 +50,9 @@ public class GalleryStore
 
     public async Task<List<Gallery>> ListByClientAsync(string clientId)
     {
+        if (string.IsNullOrWhiteSpace(clientId)) return new List<Gallery>();
         var all = await ListAllAsync();
-        return all.Where(g => string.Equals(g.ClientId, clientId, StringComparison.OrdinalIgnoreCase)).ToList();
+        return all.Where(g => !string.IsNullOrWhiteSpace(g.ClientId) && string.Equals(g.ClientId, clientId, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     public async Task<List<Gallery>> ListPortfolioAsync()

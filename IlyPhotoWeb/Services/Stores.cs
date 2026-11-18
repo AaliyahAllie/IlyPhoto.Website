@@ -23,7 +23,7 @@ public class CounterStore
             {
                 current = v is long l ? l : Convert.ToInt64(v);
             }
-            long next = current + 1;
+            long next = Math.Max(current, start) + 1;
             var newEntity = new TableEntity("counter", name) { { "Value", next } };
             await _table.UpsertEntityAsync(newEntity, TableUpdateMode.Replace);
             return next;
@@ -311,14 +311,22 @@ public class BookingStore
 
     public virtual async Task<List<Booking>> ListByClientAsync(string clientId, string? uid = null, string? email = null)
     {
+        if (string.IsNullOrWhiteSpace(clientId) && string.IsNullOrWhiteSpace(uid))
+            return new List<Booking>();
+
         var all = await ListAllAsync();
         return all.Where(b =>
-            (!string.IsNullOrWhiteSpace(clientId) && (b.ClientId.Equals(clientId, StringComparison.OrdinalIgnoreCase) || b.Uid.Equals(clientId, StringComparison.OrdinalIgnoreCase))) ||
-            (!string.IsNullOrWhiteSpace(uid) && (b.Uid.Equals(uid, StringComparison.OrdinalIgnoreCase) || b.ClientId.Equals(uid, StringComparison.OrdinalIgnoreCase))) ||
-            (!string.IsNullOrWhiteSpace(email) && b.ClientEmail.Equals(email, StringComparison.OrdinalIgnoreCase)))
-            .OrderByDescending(b => b.Date, StringComparer.Ordinal)
-            .ThenBy(b => b.StartTime, StringComparer.Ordinal)
-            .ToList();
+        {
+            if (!string.IsNullOrWhiteSpace(b.ClientId))
+                return !string.IsNullOrWhiteSpace(clientId) && b.ClientId.Equals(clientId, StringComparison.OrdinalIgnoreCase);
+
+            // Fallback only for legacy records that were created without a ClientId
+            return (!string.IsNullOrWhiteSpace(uid) && b.Uid.Equals(uid, StringComparison.OrdinalIgnoreCase)) ||
+                   (!string.IsNullOrWhiteSpace(email) && b.ClientEmail.Equals(email, StringComparison.OrdinalIgnoreCase));
+        })
+        .OrderByDescending(b => b.Date, StringComparer.Ordinal)
+        .ThenBy(b => b.StartTime, StringComparer.Ordinal)
+        .ToList();
     }
 
     public virtual async Task<List<Booking>> ListByDateRangeAsync(string fromIso, string toIso)
@@ -513,7 +521,16 @@ public class InvoiceStore
     public async Task<Invoice> CreateAsync(Invoice inv)
     {
         if (string.IsNullOrWhiteSpace(inv.Id)) inv.Id = "inv-" + Guid.NewGuid().ToString("N")[..8];
-        var n = await _counters.NextAsync("invoices", 0);
+        long maxExisting = 0;
+        foreach (var existing in await ListAllAsync())
+        {
+            if (existing.InvoiceNo.StartsWith("INV-", StringComparison.OrdinalIgnoreCase) &&
+                long.TryParse(existing.InvoiceNo[4..], out var num) && num > maxExisting)
+            {
+                maxExisting = num;
+            }
+        }
+        var n = await _counters.NextAsync("invoices", maxExisting);
         inv.InvoiceNo = $"INV-{n:D5}";
         inv.Total = Math.Round(inv.Quantity * inv.Price, 2);
 
@@ -554,13 +571,14 @@ public class InvoiceStore
 
     public async Task<List<Invoice>> ListByClientAsync(string clientId)
     {
+        if (string.IsNullOrWhiteSpace(clientId)) return new List<Invoice>();
         var list = new List<Invoice>();
         try
         {
             await foreach (var entity in _table.QueryAsync<TableEntity>())
             {
                 var cid = entity.GetString("ClientId");
-                if (string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(cid) && string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
                 {
                     list.Add(ToInvoice(entity));
                 }

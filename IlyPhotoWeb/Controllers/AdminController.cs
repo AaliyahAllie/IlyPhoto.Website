@@ -219,7 +219,12 @@ public class AdminController : Controller
     public async Task<IActionResult> Invoices()
     {
         var clients = await _users.ListClientsAsync();
-        var byId = clients.ToDictionary(c => c.ClientId, c => c, StringComparer.OrdinalIgnoreCase);
+        var byId = new Dictionary<string, UserProfile>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in clients)
+        {
+            if (!string.IsNullOrWhiteSpace(c.ClientId) && !byId.ContainsKey(c.ClientId))
+                byId[c.ClientId] = c;
+        }
         var invoices = await _invoices.ListAllAsync();
         var bookings = (await _bookings.ListAllAsync()).Where(b => IsConfirmedBooking(b.Status)).ToList();
 
