@@ -36,15 +36,8 @@ public class AdminController : Controller
         _emails = emails;
     }
 
-    private static bool IsConfirmedBooking(string? status) =>
-        !string.IsNullOrWhiteSpace(status) &&
-        (status.Equals(BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase) ||
-         status.Equals("Approved", StringComparison.OrdinalIgnoreCase) ||
-         status.Equals("Completed", StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsPendingBooking(string? status) =>
-        !string.IsNullOrWhiteSpace(status) &&
-        status.Equals(BookingStatus.Pending, StringComparison.OrdinalIgnoreCase);
+    private static bool IsConfirmedBooking(string? status) => BookingStatus.IsConfirmed(status);
+    private static bool IsPendingBooking(string? status) => BookingStatus.IsPending(status);
 
     // ---------- Dashboard ----------
     public async Task<IActionResult> Index()
@@ -55,18 +48,24 @@ public class AdminController : Controller
 
         var bookings = await _bookings.ListAllAsync();
         var invoices = await _invoices.ListAllAsync();
-        var pending = bookings.Where(b => IsPendingBooking(b.Status)).ToList();
-        var outstanding = invoices.Where(i => i.Status != InvoiceStatus.Paid).ToList();
+        var pending = bookings.Where(b => IsPendingBooking(b.Status)).OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList();
+        var upcomingAll = bookings
+            .Where(b => IsConfirmedBooking(b.Status) && string.CompareOrdinal(b.Date, todayIso) >= 0)
+            .OrderBy(b => b.Date)
+            .ThenBy(b => b.StartTime)
+            .ToList();
+        var outstanding = invoices.Where(i => !i.Status.Equals(InvoiceStatus.Paid, StringComparison.OrdinalIgnoreCase)).ToList();
 
         return View(new AdminDashboardViewModel
         {
             PendingCount = pending.Count,
-            UpcomingThisMonth = bookings.Count(b => IsConfirmedBooking(b.Status)
-                && string.CompareOrdinal(b.Date, todayIso) >= 0 && string.CompareOrdinal(b.Date, monthEnd) <= 0),
+            UpcomingThisMonth = upcomingAll.Count(b => string.CompareOrdinal(b.Date, monthEnd) <= 0),
+            UpcomingTotalCount = upcomingAll.Count,
             OutstandingCount = outstanding.Count,
             OutstandingTotal = outstanding.Sum(i => i.Total),
             ClientCount = (await _users.ListClientsAsync()).Count,
-            Pending = pending.Take(5).ToList()
+            Pending = pending.Take(5).ToList(),
+            Upcoming = upcomingAll.Take(5).ToList()
         });
     }
 
@@ -76,8 +75,8 @@ public class AdminController : Controller
         var all = await _bookings.ListAllAsync();
         return View(new AdminBookingsViewModel
         {
-            Pending = all.Where(b => IsPendingBooking(b.Status)).OrderByDescending(b => b.Date).ToList(),
-            Upcoming = all.Where(b => IsConfirmedBooking(b.Status)).OrderByDescending(b => b.Date).ToList()
+            Pending = all.Where(b => IsPendingBooking(b.Status)).OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList(),
+            Upcoming = all.Where(b => IsConfirmedBooking(b.Status)).OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList()
         });
     }
 
@@ -155,7 +154,7 @@ public class AdminController : Controller
     public async Task<IActionResult> DenyBooking(string id, string? returnTo)
     {
         var b = await _bookings.GetAsync(id);
-        if (b is not null && b.Status == BookingStatus.Pending)
+        if (b is not null && IsPendingBooking(b.Status))
         {
             await _bookings.SetStatusAsync(id, BookingStatus.Denied);
             TempData["AdminMessage"] = $"Booking for {b.ClientName} was denied.";
@@ -170,18 +169,19 @@ public class AdminController : Controller
         var services = await _services.ListAsync();
         var hours = Format.HoursBetween(startTime, endTime);
 
-        if (b is null || (b.Status != BookingStatus.Pending && b.Status != BookingStatus.Confirmed))
+        if (b is null || (!IsPendingBooking(b.Status) && !IsConfirmedBooking(b.Status)))
             TempData["AdminError"] = "That booking can no longer be rescheduled.";
         else if (!Format.TryParseDate(date, out var d) || d < Format.TodaySA() || hours is null)
             TempData["AdminError"] = "Please select a valid future date and start/end times.";
-        else if (await _bookings.IsBlockedAsync(date) || await _bookings.HasConfirmedOnDateAsync(date, b.Id))
+        else if (await _bookings.IsBlockedAsync(Format.Iso(d)) || await _bookings.HasConfirmedOnDateAsync(Format.Iso(d), b.Id))
             TempData["AdminError"] = "That selected date is not available.";
         else
         {
-            var service = services.FirstOrDefault(s => s.Name == b.EventType);
+            var normalizedIso = Format.Iso(d);
+            var service = services.FirstOrDefault(s => s.Name.Equals(b.EventType, StringComparison.OrdinalIgnoreCase));
             var total = service?.PriceFor(hours.Value) ?? b.EstimatedTotal;
-            await _bookings.RescheduleAsync(id, date, startTime, endTime, hours.Value, total);
-            TempData["AdminMessage"] = $"Booking moved to {Format.Date(date)} ({startTime} - {endTime}).";
+            await _bookings.RescheduleAsync(id, normalizedIso, startTime, endTime, hours.Value, total);
+            TempData["AdminMessage"] = $"Booking moved to {Format.Date(normalizedIso)} ({startTime} - {endTime}).";
         }
         return BackTo(returnTo);
     }
@@ -219,9 +219,9 @@ public class AdminController : Controller
     public async Task<IActionResult> Invoices()
     {
         var clients = await _users.ListClientsAsync();
-        var byId = clients.ToDictionary(c => c.ClientId, c => c);
+        var byId = clients.ToDictionary(c => c.ClientId, c => c, StringComparer.OrdinalIgnoreCase);
         var invoices = await _invoices.ListAllAsync();
-        var bookings = (await _bookings.ListAllAsync()).Where(b => b.Status == BookingStatus.Confirmed).ToList();
+        var bookings = (await _bookings.ListAllAsync()).Where(b => IsConfirmedBooking(b.Status)).ToList();
 
         return View(new AdminInvoicesViewModel
         {
@@ -249,9 +249,16 @@ public class AdminController : Controller
         Booking? booking = null;
         if (!string.IsNullOrEmpty(form.BookingId)) booking = await _bookings.GetAsync(form.BookingId);
 
+        bool bookingBelongsToClient = booking is null ||
+            (client is not null && (
+                booking.ClientId.Equals(client.ClientId, StringComparison.OrdinalIgnoreCase) ||
+                booking.Uid.Equals(client.Id, StringComparison.OrdinalIgnoreCase) ||
+                booking.ClientEmail.Equals(client.Email, StringComparison.OrdinalIgnoreCase)
+            ));
+
         if (client is null)
             TempData["AdminError"] = "Please select a valid client.";
-        else if (booking is not null && booking.ClientId != client.ClientId)
+        else if (!bookingBelongsToClient)
             TempData["AdminError"] = "That booking does not belong to the selected client.";
         else if (!Format.TryParseDate(form.IssueDate, out _) || !Format.TryParseDate(form.DueDate, out _))
             TempData["AdminError"] = "Please enter valid issue and due dates.";
@@ -269,14 +276,19 @@ public class AdminController : Controller
                 ClientId = client.ClientId,
                 BookingId = booking?.Id ?? "",
                 BookingLabel = booking?.Label ?? "",
-                IssueDate = form.IssueDate,
-                DueDate = form.DueDate,
+                IssueDate = Format.NormalizeDateIso(form.IssueDate),
+                DueDate = Format.NormalizeDateIso(form.DueDate),
                 Service = form.Service.Trim(),
                 Quantity = form.Quantity,
                 Price = price,
                 Status = form.Status,
                 EmailSent = true
             });
+
+            if (booking is not null)
+            {
+                await _bookings.SetInvoiceStatusAsync(booking.Id, inv.InvoiceNo, inv.Status);
+            }
 
             // Immediately dispatch invoice via email to the client for EFT payment
             await _emails.SendInvoiceEmailAsync(inv, client);
@@ -292,6 +304,11 @@ public class AdminController : Controller
         if (InvoiceStatus.All.Contains(status))
         {
             await _invoices.SetStatusAsync(id, status);
+            var inv = await _invoices.GetAsync(id);
+            if (inv is not null && !string.IsNullOrWhiteSpace(inv.BookingId))
+            {
+                await _bookings.SetInvoiceStatusAsync(inv.BookingId, inv.InvoiceNo, status);
+            }
             TempData["AdminMessage"] = $"Invoice payment status updated to {status}.";
         }
         return RedirectToAction(nameof(Invoices));
@@ -401,7 +418,11 @@ public class AdminController : Controller
         var bookings = await _bookings.ListAllAsync();
         var rows = clients.Select(c =>
         {
-            var mine = bookings.Where(b => b.ClientId == c.ClientId).ToList();
+            var mine = bookings.Where(b =>
+                (!string.IsNullOrWhiteSpace(c.ClientId) && b.ClientId.Equals(c.ClientId, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(c.Id) && b.Uid.Equals(c.Id, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(c.Email) && b.ClientEmail.Equals(c.Email, StringComparison.OrdinalIgnoreCase))
+            ).ToList();
             var last = mine.Select(b => b.CreatedAt.ToDateTime()).DefaultIfEmpty(c.CreatedAt.ToDateTime()).Max();
             return new ClientRow
             {

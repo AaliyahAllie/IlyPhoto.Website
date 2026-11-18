@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using IlyPhotoWeb.Models;
 using IlyPhotoWeb.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -33,19 +34,22 @@ public class ClientController : Controller
     }
 
     private string ClientIdValue => User.ClientId();
+    private string ClientEmailValue => User.FindFirstValue(ClaimTypes.Email) ?? "";
 
     // ---------- Dashboard ----------
     public async Task<IActionResult> Index()
     {
         var today = Format.TodayIso();
-        var bookings = await _bookings.ListByClientAsync(ClientIdValue);
+        var bookings = await _bookings.ListByClientAsync(ClientIdValue, User.Uid(), ClientEmailValue);
         var invoices = await _invoices.ListByClientAsync(ClientIdValue);
         var galleries = await _galleries.ListByClientAsync(ClientIdValue);
 
         var upcoming = bookings
-            .Where(b => (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed)
+            .Where(b => (BookingStatus.IsPending(b.Status) || BookingStatus.IsConfirmed(b.Status))
                         && string.CompareOrdinal(b.Date, today) >= 0)
-            .OrderBy(b => b.Date).ToList();
+            .OrderBy(b => b.Date, StringComparer.Ordinal)
+            .ThenBy(b => b.StartTime, StringComparer.Ordinal)
+            .ToList();
         var outstanding = invoices.Where(i => i.Status != InvoiceStatus.Paid).ToList();
 
         var paidGalleryCount = 0;
@@ -77,7 +81,7 @@ public class ClientController : Controller
         {
             Services = services,
             Form = new BookingViewModel { EventType = services.FirstOrDefault()?.Name ?? "", Date = Format.TodaySA().AddDays(14) },
-            Mine = await _bookings.ListByClientAsync(ClientIdValue)
+            Mine = await _bookings.ListByClientAsync(ClientIdValue, User.Uid(), ClientEmailValue)
         });
     }
 
@@ -85,7 +89,7 @@ public class ClientController : Controller
     public async Task<IActionResult> Bookings(BookingViewModel form)
     {
         var services = await _services.ListAsync();
-        var service = services.FirstOrDefault(s => s.Name == form.EventType);
+        var service = services.FirstOrDefault(s => s.Name.Equals(form.EventType?.Trim(), StringComparison.OrdinalIgnoreCase));
         var dateIso = Format.Iso(form.Date);
         int? hours = Format.HoursBetween(form.StartTime, form.EndTime);
 
@@ -105,7 +109,7 @@ public class ClientController : Controller
             {
                 Form = form,
                 Services = services,
-                Mine = await _bookings.ListByClientAsync(ClientIdValue)
+                Mine = await _bookings.ListByClientAsync(ClientIdValue, User.Uid(), ClientEmailValue)
             });
         }
 
@@ -115,7 +119,8 @@ public class ClientController : Controller
             ClientId = ClientIdValue,
             Uid = User.Uid(),
             ClientName = profile?.FullName ?? User.Identity?.Name ?? "",
-            ClientEmail = profile?.Email ?? "",
+            ClientEmail = profile?.Email ?? ClientEmailValue,
+            ClientPhone = profile?.Phone ?? "",
             EventType = service!.Name,
             Date = dateIso,
             StartTime = form.StartTime,
@@ -135,8 +140,13 @@ public class ClientController : Controller
     public async Task<IActionResult> CancelBooking(string id)
     {
         var b = await _bookings.GetAsync(id);
-        if (b is not null && b.ClientId == ClientIdValue
-            && (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed))
+        bool isOwner = b is not null && (
+            (!string.IsNullOrWhiteSpace(ClientIdValue) && b.ClientId.Equals(ClientIdValue, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(User.Uid()) && b.Uid.Equals(User.Uid(), StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(ClientEmailValue) && b.ClientEmail.Equals(ClientEmailValue, StringComparison.OrdinalIgnoreCase))
+        );
+        if (b is not null && isOwner
+            && (BookingStatus.IsPending(b.Status) || BookingStatus.IsConfirmed(b.Status)))
         {
             await _bookings.SetStatusAsync(id, BookingStatus.Cancelled);
             TempData["BookingMessage"] = "Your booking request has been cancelled.";

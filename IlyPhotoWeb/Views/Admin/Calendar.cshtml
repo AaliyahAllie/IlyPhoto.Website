@@ -44,7 +44,7 @@
           </tr>
         </thead>
         <tbody>
-        @foreach (var b in Model.Where(x => x.Status == BookingStatus.Confirmed).OrderBy(x => x.Date))
+        @foreach (var b in Model.Where(x => BookingStatus.IsConfirmed(x.Status)).OrderBy(x => x.Date))
         {
           <tr style="border-bottom: 1px solid #ECE4D8;">
             <td style="padding: 10px; font-weight: 700;">@Format.Date(b.Date)</td>
@@ -52,10 +52,10 @@
             <td style="padding: 10px; font-weight: 600;">@b.EventType</td>
             <td style="padding: 10px;">@b.ClientName (@b.ClientId)</td>
             <td style="padding: 10px;">@b.Location</td>
-            <td style="padding: 10px;"><span class="status confirmed">Confirmed</span></td>
+            <td style="padding: 10px;"><span class="status confirmed">@b.Status</span></td>
           </tr>
         }
-        @if (!Model.Any(x => x.Status == BookingStatus.Confirmed))
+        @if (!Model.Any(x => BookingStatus.IsConfirmed(x.Status)))
         {
           <tr><td colspan="6" style="padding: 15px; color: #777;">No confirmed bookings on the schedule yet.</td></tr>
         }

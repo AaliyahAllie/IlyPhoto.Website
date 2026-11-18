@@ -18,6 +18,16 @@ public static class BookingStatus
     public const string Cancelled = "Cancelled";
     public const string Completed = "Completed";
     public const string Rescheduled = "Rescheduled";
+
+    public static bool IsConfirmed(string? status) =>
+        !string.IsNullOrWhiteSpace(status) &&
+        (status.Equals(Confirmed, StringComparison.OrdinalIgnoreCase) ||
+         status.Equals("Approved", StringComparison.OrdinalIgnoreCase) ||
+         status.Equals(Completed, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsPending(string? status) =>
+        !string.IsNullOrWhiteSpace(status) &&
+        status.Equals(Pending, StringComparison.OrdinalIgnoreCase);
 }
 
 public static class InvoiceStatus
@@ -96,7 +106,7 @@ public class Booking
     public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
 
     public DateTime EventDate =>
-        DateTime.TryParseExact(Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : DateTime.Today;
+        Format.TryParseDate(Date, out var d) ? d : Format.TodaySA();
     public string Label => $"{EventType} — {Format.Date(Date)}";
 }
 

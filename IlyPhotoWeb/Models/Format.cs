@@ -13,12 +13,32 @@ public static class Format
     public static string Rand(decimal amount) =>
         Rand((double)amount);
 
-    public static string Date(string? iso) =>
-        DateTime.TryParseExact(iso, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+    private static readonly string[] SupportedDateFormats =
+    {
+        "yyyy-MM-dd",
+        "d MMMM yyyy",
+        "dd MMMM yyyy",
+        "d MMM yyyy",
+        "dd MMM yyyy",
+        "MMMM d, yyyy",
+        "MMM d, yyyy",
+        "yyyy/MM/dd",
+        "dd/MM/yyyy",
+        "d/M/yyyy",
+        "yyyy-MM-ddTHH:mm:ss",
+        "yyyy-MM-ddTHH:mm:ssZ",
+        "yyyy-MM-ddTHH:mm:ss.fffffffZ"
+    };
+
+    public static string Date(string? raw) =>
+        TryParseDate(raw, out var d)
             ? d.ToString("d MMM yyyy", CultureInfo.InvariantCulture)
-            : (iso ?? "");
+            : (raw ?? "");
 
     public static string Iso(DateTime d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    public static string NormalizeDateIso(string? raw) =>
+        TryParseDate(raw, out var d) ? Iso(d) : (raw ?? "").Trim();
 
     /// <summary>Today's date in South Africa, regardless of server location.</summary>
     public static DateTime TodaySA()
@@ -56,8 +76,27 @@ public static class Format
         double.TryParse((text ?? "").Trim().Replace(",", "."), NumberStyles.Float, CultureInfo.InvariantCulture, out value)
         && value >= 0 && !double.IsInfinity(value);
 
-    public static bool TryParseDate(string? text, out DateTime date) =>
-        DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+    public static bool TryParseDate(string? text, out DateTime date)
+    {
+        date = default;
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var clean = text.Trim();
+
+        if (DateTime.TryParseExact(clean, SupportedDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out date))
+        {
+            date = date.Date;
+            return true;
+        }
+
+        if (DateTime.TryParse(clean, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out date) ||
+            DateTime.TryParse(clean, Za, DateTimeStyles.AssumeLocal, out date))
+        {
+            date = date.Date;
+            return true;
+        }
+
+        return false;
+    }
 
     public static bool TryParseTime(string? text, out TimeSpan time) =>
         TimeSpan.TryParseExact(text, @"hh\:mm", CultureInfo.InvariantCulture, out time);

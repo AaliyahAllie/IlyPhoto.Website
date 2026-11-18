@@ -25,18 +25,19 @@ public class CalendarController : Controller
         var to = Format.Iso(first.AddMonths(1).AddDays(-1));
         var isAdmin = User.IsInRole(Roles.Admin);
         var uid = User.Identity?.IsAuthenticated == true ? User.Uid() : "";
+        var cid = User.Identity?.IsAuthenticated == true ? User.ClientId() : "";
         var result = new Dictionary<string, string>();
 
         foreach (var b in await _bookings.ListByDateRangeAsync(from, to))
         {
-            var day = b.EventDate.Day.ToString();
-            var mine = !isAdmin && b.Uid == uid;
-            bool isConfirmed = !string.IsNullOrWhiteSpace(b.Status) &&
-                (b.Status.Equals(BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase) ||
-                 b.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) ||
-                 b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase));
-            bool isPending = !string.IsNullOrWhiteSpace(b.Status) &&
-                b.Status.Equals(BookingStatus.Pending, StringComparison.OrdinalIgnoreCase);
+            if (!Format.TryParseDate(b.Date, out var eventDt)) continue;
+            var day = eventDt.Day.ToString();
+            var mine = !isAdmin && (
+                (!string.IsNullOrWhiteSpace(uid) && b.Uid.Equals(uid, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(cid) && b.ClientId.Equals(cid, StringComparison.OrdinalIgnoreCase))
+            );
+            bool isConfirmed = BookingStatus.IsConfirmed(b.Status);
+            bool isPending = BookingStatus.IsPending(b.Status);
 
             if (isConfirmed)
                 result[day] = mine ? "mine" : "busy";
@@ -46,7 +47,7 @@ public class CalendarController : Controller
 
         foreach (var blocked in await _bookings.ListBlockedAsync(from, to))
         {
-            if (DateTime.TryParseExact(blocked.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
+            if (Format.TryParseDate(blocked.Date, out var dt))
             {
                 result[dt.Day.ToString()] = "blocked";
             }

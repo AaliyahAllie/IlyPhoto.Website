@@ -203,55 +203,88 @@ public class BookingStore
 
     public virtual async Task<Booking?> GetAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id)) return null;
         try
         {
             var entity = await _table.GetEntityIfExistsAsync<TableEntity>("booking", id);
-            return entity.HasValue && entity.Value != null ? ToBooking(entity.Value) : null;
+            if (entity.HasValue && entity.Value != null)
+                return ToBooking(entity.Value);
+
+            // Fallback scan in case the booking was written with a different PartitionKey (e.g. mobile app / API)
+            await foreach (var e in _table.QueryAsync<TableEntity>())
+            {
+                if (e.RowKey.Equals(id, StringComparison.OrdinalIgnoreCase) ||
+                    ReadStr(e, "Id", "id").Equals(id, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ToBooking(e);
+                }
+            }
         }
-        catch
-        {
-            return null;
-        }
+        catch { }
+        return null;
     }
 
     public virtual async Task<string> CreateAsync(Booking b)
     {
         if (string.IsNullOrWhiteSpace(b.Id)) b.Id = "book-" + Guid.NewGuid().ToString("N")[..8];
-        var entity = new TableEntity("booking", b.Id)
+        var isoDate = Format.NormalizeDateIso(b.Date);
+        b.Date = isoDate;
+
+        var partitionKey = "booking";
+        try
+        {
+            var existing = await _table.GetEntityIfExistsAsync<TableEntity>("booking", b.Id);
+            if (!existing.HasValue)
+            {
+                await foreach (var e in _table.QueryAsync<TableEntity>())
+                {
+                    if (e.RowKey.Equals(b.Id, StringComparison.OrdinalIgnoreCase) ||
+                        ReadStr(e, "Id", "id").Equals(b.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        partitionKey = e.PartitionKey;
+                        b.Id = e.RowKey;
+                        break;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        var entity = new TableEntity(partitionKey, b.Id)
         {
             { "Id", b.Id },
             { "id", b.Id },
-            { "ClientId", b.ClientId },
-            { "clientId", b.ClientId },
-            { "Uid", b.Uid },
-            { "uid", b.Uid },
-            { "ClientName", b.ClientName },
-            { "clientName", b.ClientName },
-            { "ClientEmail", b.ClientEmail },
-            { "clientEmail", b.ClientEmail },
-            { "ClientPhone", b.ClientPhone },
-            { "clientPhone", b.ClientPhone },
-            { "EventType", b.EventType },
-            { "serviceName", b.EventType },
-            { "Date", b.Date },
-            { "eventDate", b.Date },
-            { "StartTime", b.StartTime },
-            { "eventTime", b.StartTime },
-            { "EndTime", b.EndTime },
+            { "ClientId", b.ClientId ?? "" },
+            { "clientId", b.ClientId ?? "" },
+            { "Uid", b.Uid ?? "" },
+            { "uid", b.Uid ?? "" },
+            { "ClientName", b.ClientName ?? "" },
+            { "clientName", b.ClientName ?? "" },
+            { "ClientEmail", b.ClientEmail ?? "" },
+            { "clientEmail", b.ClientEmail ?? "" },
+            { "ClientPhone", b.ClientPhone ?? "" },
+            { "clientPhone", b.ClientPhone ?? "" },
+            { "EventType", b.EventType ?? "" },
+            { "serviceName", b.EventType ?? "" },
+            { "Date", isoDate },
+            { "eventDate", isoDate },
+            { "StartTime", b.StartTime ?? "" },
+            { "eventTime", b.StartTime ?? "" },
+            { "EndTime", b.EndTime ?? "" },
             { "Hours", b.Hours },
             { "durationHours", b.Hours },
-            { "Location", b.Location },
-            { "eventLocation", b.Location },
-            { "Notes", b.Notes },
-            { "requirements", b.Notes },
-            { "Status", b.Status },
-            { "status", b.Status },
+            { "Location", b.Location ?? "" },
+            { "eventLocation", b.Location ?? "" },
+            { "Notes", b.Notes ?? "" },
+            { "requirements", b.Notes ?? "" },
+            { "Status", b.Status ?? BookingStatus.Pending },
+            { "status", b.Status ?? BookingStatus.Pending },
             { "EstimatedTotal", b.EstimatedTotal },
             { "servicePrice", b.EstimatedTotal },
-            { "InvoiceNumber", b.InvoiceNumber },
-            { "invoiceNumber", b.InvoiceNumber },
-            { "InvoiceStatus", b.InvoiceStatus },
-            { "invoiceStatus", b.InvoiceStatus },
+            { "InvoiceNumber", b.InvoiceNumber ?? "" },
+            { "invoiceNumber", b.InvoiceNumber ?? "" },
+            { "InvoiceStatus", b.InvoiceStatus ?? "Unpaid" },
+            { "invoiceStatus", b.InvoiceStatus ?? "Unpaid" },
             { "CreatedAt", b.CreatedAt.ToString() }
         };
         await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
@@ -265,42 +298,43 @@ public class BookingStore
         {
             await foreach (var entity in _table.QueryAsync<TableEntity>())
             {
-                list.Add(ToBooking(entity));
-            }
-        }
-        catch { }
-        return list.OrderBy(b => b.Date).ThenBy(b => b.StartTime).ToList();
-    }
-
-    public virtual async Task<List<Booking>> ListByClientAsync(string clientId)
-    {
-        var list = new List<Booking>();
-        try
-        {
-            await foreach (var entity in _table.QueryAsync<TableEntity>())
-            {
-                var cid = entity.GetString("ClientId") ?? entity.GetString("clientId") ?? entity.GetString("Uid") ?? entity.GetString("uid");
-                if (string.Equals(cid, clientId, StringComparison.OrdinalIgnoreCase))
+                try
                 {
                     list.Add(ToBooking(entity));
                 }
+                catch { }
             }
         }
         catch { }
-        return list.OrderByDescending(b => b.Date).ToList();
+        return list.OrderBy(b => b.Date, StringComparer.Ordinal).ThenBy(b => b.StartTime, StringComparer.Ordinal).ToList();
+    }
+
+    public virtual async Task<List<Booking>> ListByClientAsync(string clientId, string? uid = null, string? email = null)
+    {
+        var all = await ListAllAsync();
+        return all.Where(b =>
+            (!string.IsNullOrWhiteSpace(clientId) && (b.ClientId.Equals(clientId, StringComparison.OrdinalIgnoreCase) || b.Uid.Equals(clientId, StringComparison.OrdinalIgnoreCase))) ||
+            (!string.IsNullOrWhiteSpace(uid) && (b.Uid.Equals(uid, StringComparison.OrdinalIgnoreCase) || b.ClientId.Equals(uid, StringComparison.OrdinalIgnoreCase))) ||
+            (!string.IsNullOrWhiteSpace(email) && b.ClientEmail.Equals(email, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(b => b.Date, StringComparer.Ordinal)
+            .ThenBy(b => b.StartTime, StringComparer.Ordinal)
+            .ToList();
     }
 
     public virtual async Task<List<Booking>> ListByDateRangeAsync(string fromIso, string toIso)
     {
+        var f = Format.NormalizeDateIso(fromIso);
+        var t = Format.NormalizeDateIso(toIso);
         var all = await ListAllAsync();
-        return all.Where(b => string.Compare(b.Date, fromIso, StringComparison.Ordinal) >= 0 &&
-                              string.Compare(b.Date, toIso, StringComparison.Ordinal) <= 0).ToList();
+        return all.Where(b => string.Compare(b.Date, f, StringComparison.Ordinal) >= 0 &&
+                              string.Compare(b.Date, t, StringComparison.Ordinal) <= 0).ToList();
     }
 
     public virtual async Task<bool> HasConfirmedOnDateAsync(string dateIso, string? exceptBookingId = null)
     {
+        var normalized = Format.NormalizeDateIso(dateIso);
         var all = await ListAllAsync();
-        return all.Any(b => b.Date == dateIso && b.Status == BookingStatus.Confirmed && b.Id != exceptBookingId);
+        return all.Any(b => b.Date == normalized && BookingStatus.IsConfirmed(b.Status) && b.Id != exceptBookingId);
     }
 
     public virtual async Task SetStatusAsync(string id, string status)
@@ -313,12 +347,23 @@ public class BookingStore
         }
     }
 
+    public virtual async Task SetInvoiceStatusAsync(string bookingId, string invoiceNo, string invoiceStatus)
+    {
+        var b = await GetAsync(bookingId);
+        if (b != null)
+        {
+            if (!string.IsNullOrWhiteSpace(invoiceNo)) b.InvoiceNumber = invoiceNo;
+            b.InvoiceStatus = invoiceStatus;
+            await CreateAsync(b);
+        }
+    }
+
     public virtual async Task RescheduleAsync(string id, string date, string start, string end, int hours, double total)
     {
         var b = await GetAsync(id);
         if (b != null)
         {
-            b.Date = date;
+            b.Date = Format.NormalizeDateIso(date);
             b.StartTime = start;
             b.EndTime = end;
             b.Hours = hours;
@@ -332,7 +377,7 @@ public class BookingStore
     {
         try
         {
-            var entity = await _blockedTable.GetEntityIfExistsAsync<TableEntity>("blockedDate", dateIso);
+            var entity = await _blockedTable.GetEntityIfExistsAsync<TableEntity>("blockedDate", Format.NormalizeDateIso(dateIso));
             return entity.HasValue;
         }
         catch
@@ -343,33 +388,36 @@ public class BookingStore
 
     public virtual async Task<List<BlockedDate>> ListBlockedAsync(string fromIso, string toIso)
     {
+        var f = Format.NormalizeDateIso(fromIso);
+        var t = Format.NormalizeDateIso(toIso);
         var list = new List<BlockedDate>();
         try
         {
             await foreach (var entity in _blockedTable.QueryAsync<TableEntity>())
             {
-                var d = entity.GetString("Date") ?? entity.RowKey;
-                if (string.Compare(d, fromIso, StringComparison.Ordinal) >= 0 &&
-                    string.Compare(d, toIso, StringComparison.Ordinal) <= 0)
+                var d = Format.NormalizeDateIso(ReadStr(entity, "Date", "date") is { Length: > 0 } raw ? raw : entity.RowKey);
+                if (string.Compare(d, f, StringComparison.Ordinal) >= 0 &&
+                    string.Compare(d, t, StringComparison.Ordinal) <= 0)
                 {
                     list.Add(new BlockedDate
                     {
                         Id = entity.RowKey,
                         Date = d,
-                        Reason = entity.GetString("Reason") ?? ""
+                        Reason = ReadStr(entity, "Reason", "reason")
                     });
                 }
             }
         }
         catch { }
-        return list.OrderBy(b => b.Date).ToList();
+        return list.OrderBy(b => b.Date, StringComparer.Ordinal).ToList();
     }
 
     public virtual async Task BlockAsync(string dateIso, string reason)
     {
-        var entity = new TableEntity("blockedDate", dateIso)
+        var iso = Format.NormalizeDateIso(dateIso);
+        var entity = new TableEntity("blockedDate", iso)
         {
-            { "Date", dateIso },
+            { "Date", iso },
             { "Reason", reason },
             { "CreatedAt", DateTime.UtcNow.ToString("o") }
         };
@@ -380,44 +428,72 @@ public class BookingStore
     {
         try
         {
-            await _blockedTable.DeleteEntityAsync("blockedDate", dateIso);
+            await _blockedTable.DeleteEntityAsync("blockedDate", Format.NormalizeDateIso(dateIso));
         }
         catch { }
     }
 
+    private static string ReadStr(TableEntity e, params string[] keys)
+    {
+        foreach (var k in keys)
+        {
+            if (e.TryGetValue(k, out var val) && val != null)
+            {
+                var s = val switch
+                {
+                    DateTime dt => Format.Iso(dt),
+                    DateTimeOffset dto => Format.Iso(dto.DateTime),
+                    _ => val.ToString() ?? ""
+                };
+                if (!string.IsNullOrWhiteSpace(s)) return s.Trim();
+            }
+        }
+        return "";
+    }
+
     private static Booking ToBooking(TableEntity e)
     {
-        var createdAtStr = e.GetString("CreatedAt") ?? e.GetString("createdAt");
+        var createdAtStr = ReadStr(e, "CreatedAt", "createdAt");
         DateTime dt = DateTime.UtcNow;
         if (!string.IsNullOrEmpty(createdAtStr)) DateTime.TryParse(createdAtStr, out dt);
 
         double total = 0;
-        if (e.TryGetValue("EstimatedTotal", out var et)) total = Convert.ToDouble(et);
-        else if (e.TryGetValue("servicePrice", out var sp)) total = Convert.ToDouble(sp);
+        if (e.TryGetValue("EstimatedTotal", out var et) && et != null)
+            double.TryParse(et.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out total);
+        else if (e.TryGetValue("servicePrice", out var sp) && sp != null)
+            double.TryParse(sp.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out total);
 
         int hours = 1;
-        if (e.TryGetValue("Hours", out var h)) hours = Convert.ToInt32(h);
-        else if (e.TryGetValue("durationHours", out var dh)) hours = Convert.ToInt32(dh);
+        if (e.TryGetValue("Hours", out var h) && h != null)
+            int.TryParse(h.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out hours);
+        else if (e.TryGetValue("durationHours", out var dh) && dh != null)
+            int.TryParse(dh.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out hours);
+        if (hours < 1) hours = 1;
+
+        var rawDate = ReadStr(e, "Date", "eventDate", "date");
+        var normalizedDate = Format.NormalizeDateIso(rawDate);
+        var id = ReadStr(e, "Id", "id");
+        if (string.IsNullOrWhiteSpace(id)) id = e.RowKey;
 
         return new Booking
         {
-            Id = e.GetString("Id") ?? e.GetString("id") ?? e.RowKey,
-            ClientId = e.GetString("ClientId") ?? e.GetString("clientId") ?? "",
-            Uid = e.GetString("Uid") ?? e.GetString("uid") ?? "",
-            ClientName = e.GetString("ClientName") ?? e.GetString("clientName") ?? "",
-            ClientEmail = e.GetString("ClientEmail") ?? e.GetString("clientEmail") ?? "",
-            ClientPhone = e.GetString("ClientPhone") ?? e.GetString("clientPhone") ?? "",
-            EventType = e.GetString("EventType") ?? e.GetString("serviceName") ?? "",
-            Date = e.GetString("Date") ?? e.GetString("eventDate") ?? "",
-            StartTime = e.GetString("StartTime") ?? e.GetString("eventTime") ?? "",
-            EndTime = e.GetString("EndTime") ?? "",
+            Id = id,
+            ClientId = ReadStr(e, "ClientId", "clientId"),
+            Uid = ReadStr(e, "Uid", "uid"),
+            ClientName = ReadStr(e, "ClientName", "clientName"),
+            ClientEmail = ReadStr(e, "ClientEmail", "clientEmail"),
+            ClientPhone = ReadStr(e, "ClientPhone", "clientPhone"),
+            EventType = ReadStr(e, "EventType", "serviceName"),
+            Date = normalizedDate,
+            StartTime = ReadStr(e, "StartTime", "eventTime"),
+            EndTime = ReadStr(e, "EndTime", "endTime"),
             Hours = hours,
-            Location = e.GetString("Location") ?? e.GetString("eventLocation") ?? "",
-            Notes = e.GetString("Notes") ?? e.GetString("requirements") ?? "",
-            Status = e.GetString("Status") ?? e.GetString("status") ?? BookingStatus.Pending,
+            Location = ReadStr(e, "Location", "eventLocation"),
+            Notes = ReadStr(e, "Notes", "requirements"),
+            Status = ReadStr(e, "Status", "status") is { Length: > 0 } st ? st : BookingStatus.Pending,
             EstimatedTotal = total,
-            InvoiceNumber = e.GetString("InvoiceNumber") ?? e.GetString("invoiceNumber") ?? "",
-            InvoiceStatus = e.GetString("InvoiceStatus") ?? e.GetString("invoiceStatus") ?? "Unpaid",
+            InvoiceNumber = ReadStr(e, "InvoiceNumber", "invoiceNumber"),
+            InvoiceStatus = ReadStr(e, "InvoiceStatus", "invoiceStatus") is { Length: > 0 } ist ? ist : "Unpaid",
             CreatedAt = new Timestamp(dt)
         };
     }
@@ -494,6 +570,19 @@ public class InvoiceStore
         return list.OrderByDescending(i => i.InvoiceNo, StringComparer.Ordinal).ToList();
     }
 
+    public async Task<Invoice?> GetAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        try
+        {
+            var entity = await _table.GetEntityIfExistsAsync<TableEntity>("invoice", id);
+            if (entity.HasValue && entity.Value != null)
+                return ToInvoice(entity.Value);
+        }
+        catch { }
+        return null;
+    }
+
     public async Task SetStatusAsync(string id, string status)
     {
         try
@@ -527,8 +616,8 @@ public class InvoiceStore
             ClientId = e.GetString("ClientId") ?? "",
             BookingId = e.GetString("BookingId") ?? "",
             BookingLabel = e.GetString("BookingLabel") ?? "",
-            IssueDate = e.GetString("IssueDate") ?? "",
-            DueDate = e.GetString("DueDate") ?? "",
+            IssueDate = Format.NormalizeDateIso(e.GetString("IssueDate")),
+            DueDate = Format.NormalizeDateIso(e.GetString("DueDate")),
             Service = e.GetString("Service") ?? "",
             Quantity = qty,
             Price = price,

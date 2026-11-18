@@ -24,9 +24,9 @@
     </article>
 
     <article class="stat">
-      <span>Events This Month</span>
-      <strong>@Model.UpcomingThisMonth</strong>
-      <small>Confirmed shoots</small>
+      <span>Upcoming Shoots</span>
+      <strong>@Model.UpcomingTotalCount</strong>
+      <small>@Model.UpcomingThisMonth confirmed this month</small>
     </article>
 
     <article class="stat">
@@ -82,6 +82,39 @@
               <button class="btn btn-outline btn-sm" type="submit" style="color: #C0392B; cursor: pointer;">Deny</button>
             </form>
           </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Upcoming Confirmed Shoots -->
+  <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+      <h2 style="font-size: 1.4rem; color: #4A3525; margin: 0;">Upcoming Confirmed Shoots (@Model.UpcomingTotalCount)</h2>
+      <a asp-action="Bookings" class="btn btn-outline btn-sm" style="text-decoration: none;">View Full Schedule &rarr;</a>
+    </div>
+    @if (Model.Upcoming.Count == 0)
+    {
+      <p style="color: #666; margin: 0;">No upcoming confirmed shoots scheduled yet.</p>
+    }
+    else
+    {
+      @foreach (var b in Model.Upcoming)
+      {
+        <div class="event-row" style="display: flex; justify-content: space-between; align-items: center; padding: 1.15rem 0; border-top: 1px solid #ECE4D8;">
+          <div style="display: flex; align-items: center; gap: 1.25rem;">
+            <div class="date-box">
+              <b>@b.EventDate.Day</b>
+              <span>@b.EventDate.ToString("MMM", System.Globalization.CultureInfo.InvariantCulture).ToUpperInvariant()</span>
+            </div>
+            <div>
+              <h3 style="margin: 0 0 0.25rem 0; font-size: 1.15rem;">@b.EventType &middot; <span style="color: #7A6B5D; font-size: 0.95rem;">@b.ClientName (@b.ClientId)</span></h3>
+              <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                @Format.Date(b.Date) &nbsp;&bull;&nbsp; @b.StartTime &ndash; @b.EndTime (@b.Hours h) &nbsp;&bull;&nbsp; @b.Location
+              </p>
+            </div>
+          </div>
+          <span class="status confirmed">@b.Status</span>
         </div>
       }
     }

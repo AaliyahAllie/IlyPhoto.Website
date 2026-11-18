@@ -62,7 +62,7 @@ public class BookingViewModel
     public int Hours { get; set; } = 3;   // recalculated on server
     [Required(ErrorMessage = "Please enter the event location."), StringLength(200)]
     public string Location { get; set; } = "Cape Town";
-    [StringLength(1000)] public string Notes { get; set; } = "";
+    [StringLength(1000)] public string? Notes { get; set; } = "";
 }
 
 public class BookingPageViewModel
@@ -110,10 +110,12 @@ public class AdminDashboardViewModel
 {
     public int PendingCount { get; set; }
     public int UpcomingThisMonth { get; set; }
+    public int UpcomingTotalCount { get; set; }
     public int OutstandingCount { get; set; }
     public double OutstandingTotal { get; set; }
     public int ClientCount { get; set; }
     public List<Booking> Pending { get; set; } = new();
+    public List<Booking> Upcoming { get; set; } = new();
 }
 
 public class AdminBookingsViewModel

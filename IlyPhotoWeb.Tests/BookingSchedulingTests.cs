@@ -137,4 +137,21 @@ public class BookingSchedulingTests
         Assert.NotNull(savedBooking);
         Assert.Equal(BookingStatus.Confirmed, savedBooking.Status);
     }
+
+    [Theory]
+    [InlineData("20 November 2026", "2026-11-20")]
+    [InlineData("20 Nov 2026", "2026-11-20")]
+    [InlineData("2026-11-20", "2026-11-20")]
+    [InlineData("19/11/2026", "2026-11-19")]
+    public void NormalizeDateIso_HandlesMultipleDateFormats(string input, string expectedIso)
+    {
+        Assert.Equal(expectedIso, Format.NormalizeDateIso(input));
+    }
+
+    [Fact]
+    public void Booking_EventDate_ParsesHumanReadableDate()
+    {
+        var b = new Booking { Date = "20 November 2026" };
+        Assert.Equal(new DateTime(2026, 11, 20), b.EventDate);
+    }
 }
