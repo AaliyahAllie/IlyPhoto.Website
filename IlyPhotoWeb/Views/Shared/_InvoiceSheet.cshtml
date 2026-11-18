@@ -64,7 +64,7 @@
     </div>
 
     <div class="invoice-footer" style="background-color: #FAF7F2; border-left: 4px solid #4A3525; padding: 1rem; border-radius: 4px; margin-top: 1.5rem;">
-      <b style="color: #4A3525; font-size: 0.95rem;">🏦 Direct EFT Payment Instructions:</b>
+      <b style="color: #4A3525; font-size: 0.95rem;">Direct EFT Payment Instructions:</b>
       <p style="margin: 0.5rem 0 0 0; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap;">@Biz.Value.BankDetails.Replace("your invoice number", inv.InvoiceNo)</p>
       <p style="margin: 0.5rem 0 0 0; font-size: 0.8rem; color: #777;">
         * Please email proof of payment (POP) to <strong>info@ilyphoto.co.za</strong> referencing <strong>@inv.InvoiceNo</strong>.
@@ -74,6 +74,6 @@
 
   <div class="modal-actions" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
     <button type="button" onclick="document.getElementById('@id').close()" class="btn btn-outline">Close</button>
-    <button type="button" onclick="window.print()" class="btn btn-primary">🖨️ Print / Save as PDF</button>
+    <button type="button" onclick="window.print()" class="btn btn-primary">Print / Save as PDF</button>
   </div>
 </dialog>

@@ -11,7 +11,7 @@
       <p style="color: #666; margin: 0;">Click an open day on the calendar to block it, or a blocked day to make it available again.</p>
     </div>
     <button class="btn btn-primary" type="button" onclick="document.getElementById('blockDialog').showModal()" style="padding: 0.75rem 1.25rem;">
-      🚫 Block A Date
+      Block A Date
     </button>
   </section>
 
@@ -31,7 +31,7 @@
         <span><i class="dot busy"></i>Confirmed Booking</span>
         <span><i class="dot blocked"></i>Blocked Date</span>
       </div>
-      <p style="font-size: 0.8rem; color: #777; margin-top: 0.75rem;">💡 Tip: Click any day to quick-block or unblock it.</p>
+      <p style="font-size: 0.8rem; color: #777; margin-top: 0.75rem;">Tip: Click any day to quick-block or unblock it.</p>
     </div>
 
     <!-- Booking Requests -->
@@ -61,15 +61,15 @@
             <form method="post" asp-controller="Admin" asp-action="ApproveBooking" style="margin: 0;">
               <input type="hidden" name="id" value="@b.Id" />
               <input type="hidden" name="returnTo" value="Bookings" />
-              <button class="btn btn-primary btn-sm" type="submit" style="cursor: pointer;">✓ Approve</button>
+              <button class="btn btn-primary btn-sm" type="submit" style="cursor: pointer;">Approve</button>
             </form>
             <form method="post" asp-controller="Admin" asp-action="DenyBooking" style="margin: 0;">
               <input type="hidden" name="id" value="@b.Id" />
               <input type="hidden" name="returnTo" value="Bookings" />
-              <button class="btn btn-outline btn-sm" type="submit" style="color: #C0392B; cursor: pointer;">✕ Deny</button>
+              <button class="btn btn-outline btn-sm" type="submit" style="color: #C0392B; cursor: pointer;">Deny</button>
             </form>
             <button type="button" class="btn btn-secondary btn-sm" data-id="@b.Id" data-date="@b.Date" data-start="@b.StartTime" data-end="@b.EndTime" onclick="openReschedule(this)" style="cursor: pointer;">
-              🔄 Reschedule
+              Reschedule
             </button>
           </div>
         </div>

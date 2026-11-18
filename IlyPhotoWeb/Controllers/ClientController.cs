@@ -48,13 +48,23 @@ public class ClientController : Controller
             .OrderBy(b => b.Date).ToList();
         var outstanding = invoices.Where(i => i.Status != InvoiceStatus.Paid).ToList();
 
+        var paidGalleryCount = 0;
+        foreach (var g in galleries)
+        {
+            if (g.PhotoCount > 0)
+            {
+                var (isPaid, _, _) = await CheckGalleryPaymentAsync(g, invoices);
+                if (isPaid) paidGalleryCount++;
+            }
+        }
+
         return View(new ClientDashboardViewModel
         {
             Next = upcoming.FirstOrDefault(),
             UpcomingCount = upcoming.Count,
             OutstandingCount = outstanding.Count,
             OutstandingTotal = outstanding.Sum(i => i.Total),
-            GalleryCount = galleries.Count(g => g.PhotoCount > 0)
+            GalleryCount = paidGalleryCount
         });
     }
 
@@ -149,20 +159,81 @@ public class ClientController : Controller
     }
 
     // ---------- Galleries ----------
+    private async Task<(bool IsPaid, string? InvoiceNo, string? InvoiceStatus)> CheckGalleryPaymentAsync(Gallery g, List<Invoice> clientInvoices)
+    {
+        if (!string.IsNullOrEmpty(g.BookingId))
+        {
+            var booking = await _bookings.GetAsync(g.BookingId);
+            if (booking != null)
+            {
+                if (booking.EstimatedTotal == 0) return (true, null, "Subsidized");
+
+                var inv = clientInvoices.FirstOrDefault(i => i.BookingId == g.BookingId);
+                if (inv != null)
+                {
+                    bool paid = inv.Status.Equals(InvoiceStatus.Paid, StringComparison.OrdinalIgnoreCase);
+                    return (paid, inv.InvoiceNo, inv.Status);
+                }
+
+                if (!string.IsNullOrEmpty(booking.InvoiceStatus))
+                {
+                    bool paid = booking.InvoiceStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase);
+                    return (paid, booking.InvoiceNumber, booking.InvoiceStatus);
+                }
+            }
+        }
+
+        var matchingInvoice = clientInvoices.FirstOrDefault(i =>
+            !string.IsNullOrEmpty(i.Service) && g.Title.Contains(i.Service, StringComparison.OrdinalIgnoreCase));
+        if (matchingInvoice != null)
+        {
+            bool paid = matchingInvoice.Status.Equals(InvoiceStatus.Paid, StringComparison.OrdinalIgnoreCase);
+            return (paid, matchingInvoice.InvoiceNo, matchingInvoice.Status);
+        }
+
+        var unpaid = clientInvoices.FirstOrDefault(i => !i.Status.Equals(InvoiceStatus.Paid, StringComparison.OrdinalIgnoreCase));
+        if (unpaid != null)
+        {
+            return (false, unpaid.InvoiceNo, unpaid.Status);
+        }
+
+        return (true, null, "Paid");
+    }
+
     public async Task<IActionResult> Gallery()
     {
         var list = await _galleries.ListByClientAsync(ClientIdValue);
-        return View(list.Select(g => new GalleryCardViewModel
+        var invoices = await _invoices.ListByClientAsync(ClientIdValue);
+
+        var cards = new List<GalleryCardViewModel>();
+        foreach (var g in list)
         {
-            Gallery = g,
-            CoverUrl = g.CoverPath is null ? null : _galleries.SignedUrl(g.CoverPath)
-        }).ToList());
+            var (isPaid, invNo, invStatus) = await CheckGalleryPaymentAsync(g, invoices);
+            cards.Add(new GalleryCardViewModel
+            {
+                Gallery = g,
+                CoverUrl = g.CoverPath is null ? null : _galleries.SignedUrl(g.CoverPath),
+                IsPaid = isPaid,
+                InvoiceNo = invNo,
+                InvoiceStatus = invStatus
+            });
+        }
+        return View(cards);
     }
 
     public async Task<IActionResult> Album(string id)
     {
         var g = await _galleries.GetAsync(id);
         if (g is null || g.ClientId != ClientIdValue) return NotFound();
+
+        var invoices = await _invoices.ListByClientAsync(ClientIdValue);
+        var (isPaid, invNo, _) = await CheckGalleryPaymentAsync(g, invoices);
+        if (!isPaid)
+        {
+            TempData["ClientError"] = $"Payment is required to view your album photos. Please settle invoice {invNo ?? ""} to unlock your gallery.";
+            return RedirectToAction(nameof(Invoices));
+        }
+
         return View(new AlbumViewModel
         {
             Gallery = g,
@@ -174,6 +245,14 @@ public class ClientController : Controller
     {
         var g = await _galleries.GetAsync(id);
         if (g is null || g.ClientId != ClientIdValue) return NotFound();
+
+        var invoices = await _invoices.ListByClientAsync(ClientIdValue);
+        var (isPaid, invNo, _) = await CheckGalleryPaymentAsync(g, invoices);
+        if (!isPaid)
+        {
+            TempData["ClientError"] = $"Payment is required to download this album. Please settle invoice {invNo ?? ""} to unlock your photos.";
+            return RedirectToAction(nameof(Invoices));
+        }
 
         var bodyControl = HttpContext.Features.Get<IHttpBodyControlFeature>();
         if (bodyControl is not null) bodyControl.AllowSynchronousIO = true;

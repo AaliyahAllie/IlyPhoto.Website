@@ -41,9 +41,9 @@ public class AuthService
             return new AuthResult(false, "An account with this email already exists. Please log in.");
         }
 
-        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+        if (!IsPasswordComplex(password, out var pwdError))
         {
-            return new AuthResult(false, "Password must be at least 6 characters.");
+            return new AuthResult(false, pwdError);
         }
 
         var uid = "user-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "-" + Guid.NewGuid().ToString("N")[..6];
@@ -149,8 +149,8 @@ public class AuthService
         if (string.IsNullOrWhiteSpace(email))
             return new AuthResult(false, "Please provide your email address.");
 
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
-            return new AuthResult(false, "New password must be at least 6 characters.");
+        if (!IsPasswordComplex(newPassword, out var pwdError))
+            return new AuthResult(false, pwdError);
 
         var cleanEmail = email.Trim().ToLowerInvariant();
         var user = await _users.GetByEmailAsync(cleanEmail);
@@ -163,6 +163,37 @@ public class AuthService
         await _users.SaveAsync(user);
         _log.LogInformation("Password reset and saved to Azure Table Storage for user {Email}.", cleanEmail);
         return new AuthResult(true, Profile: user);
+    }
+
+    public static bool IsPasswordComplex(string? password, out string error)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+        {
+            error = "Password must be at least 8 characters long.";
+            return false;
+        }
+        if (!password.Any(char.IsUpper))
+        {
+            error = "Password must contain at least one uppercase letter (A-Z).";
+            return false;
+        }
+        if (!password.Any(char.IsLower))
+        {
+            error = "Password must contain at least one lowercase letter (a-z).";
+            return false;
+        }
+        if (!password.Any(char.IsDigit))
+        {
+            error = "Password must contain at least one digit (0-9).";
+            return false;
+        }
+        if (!password.Any(ch => !char.IsLetterOrDigit(ch)))
+        {
+            error = "Password must contain at least one special character (e.g. !@#$%^&*).";
+            return false;
+        }
+        error = "";
+        return true;
     }
 
     private async Task<string> NewClientIdAsync() => $"CL-{await _counters.NextAsync("clients", 1000)}";

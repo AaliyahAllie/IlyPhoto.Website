@@ -12,10 +12,16 @@
     </div>
   </section>
 
+  @if (TempData["ClientError"] is string errorMsg)
+  {
+    <div style="background: #F8D7DA; border: 1px solid #DC3545; color: #721C24; padding: 1rem 1.25rem; border-radius: 6px; font-weight: 600; margin-bottom: 1.5rem;">
+      @errorMsg
+    </div>
+  }
+
   @if (Model.Count == 0)
   {
     <div class="card" style="padding: 3.5rem 2rem; text-align: center; max-width: 650px; margin: 2rem auto; background: #FFF; border: 1px solid #E2DACB; border-radius: 8px;">
-      <div style="font-size: 3rem; margin-bottom: 0.75rem;">📷</div>
       <h3 style="color: #4A3525; margin-bottom: 0.5rem;">No Galleries Uploaded Yet</h3>
       <p style="color: #666; font-size: 0.95rem; line-height: 1.6;">
         Once your photography session has taken place and your pictures are professionally edited, Aysha will upload your gallery right here for you to view and download!
@@ -31,9 +37,16 @@
       <div class="card" style="background: #FFF; border: 1px solid #E2DACB; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
         <div>
           <div style="height: 240px; background-color: #E6E1D8; overflow: hidden; position: relative;">
-            @if (card.CoverUrl is not null)
+            @if (card.CoverUrl is not null && card.IsPaid)
             {
               <img src="@card.CoverUrl" alt="@g.Title" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" />
+            }
+            else if (!card.IsPaid)
+            {
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #26211C; color: #F5EBE1; padding: 1rem; text-align: center;">
+                <span class="badge" style="background: #D97706; color: #FFF; margin-bottom: 0.5rem; font-size: 0.82rem;">Payment Pending</span>
+                <p style="font-size: 0.88rem; margin: 0; color: #EAE3D2;">Album locked pending payment settlement.</p>
+              </div>
             }
             else
             {
@@ -42,13 +55,13 @@
               </div>
             }
             <span class="badge" style="position: absolute; top: 12px; right: 12px; background: rgba(26,26,26,0.75); color: #FFF; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">
-              📁 @g.PhotoCount Photos
+              @g.PhotoCount Photos
             </span>
           </div>
 
           <div style="padding: 1.5rem;">
             <span style="font-size: 0.8rem; color: #7A6B5D; font-weight: 700; text-transform: uppercase;">
-              📅 @Format.Date(g.EventDate)
+              Date: @Format.Date(g.EventDate)
             </span>
             <h3 style="font-size: 1.35rem; margin: 0.35rem 0 0.5rem 0; color: #1A1A1A;">@g.Title</h3>
             <p style="color: #666; font-size: 0.88rem; margin: 0;">
@@ -57,15 +70,26 @@
           </div>
         </div>
 
-        <div style="padding: 1.25rem 1.5rem; background: #FAF7F2; border-top: 1px solid #ECE4D8; display: flex; gap: 0.75rem;">
-          @if (g.PhotoCount > 0)
+        <div style="padding: 1.25rem 1.5rem; background: #FAF7F2; border-top: 1px solid #ECE4D8;">
+          @if (!card.IsPaid)
           {
-            <a asp-action="Album" asp-route-id="@g.Id" class="btn btn-outline btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
-              👁️ View Album
+            <div style="background: #FFF3CD; border: 1px solid #FFEBAA; color: #856404; padding: 0.75rem 0.9rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem;">
+              Payment required to unlock high-resolution photos. Invoice: @(card.InvoiceNo ?? "Pending")
+            </div>
+            <a asp-action="Invoices" class="btn btn-primary btn-sm" style="width: 100%; text-align: center; text-decoration: none; display: block;">
+              View Invoice &amp; Settle EFT
             </a>
-            <a asp-action="DownloadAlbum" asp-route-id="@g.Id" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
-              ⬇️ Download (ZIP)
-            </a>
+          }
+          else if (g.PhotoCount > 0)
+          {
+            <div style="display: flex; gap: 0.75rem;">
+              <a asp-action="Album" asp-route-id="@g.Id" class="btn btn-outline btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
+                View Album
+              </a>
+              <a asp-action="DownloadAlbum" asp-route-id="@g.Id" class="btn btn-primary btn-sm" style="flex: 1; text-align: center; text-decoration: none;">
+                Download (ZIP)
+              </a>
+            </div>
           }
         </div>
       </div>

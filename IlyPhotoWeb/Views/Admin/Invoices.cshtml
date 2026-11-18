@@ -56,13 +56,13 @@
               </td>
               <td style="padding: 12px;">
                 <span class="badge" style="background: #E8F8F5; color: #117A65; font-size: 0.78rem;">
-                  ✉️ Emailed via EFT Notice
+                  Emailed via EFT Notice
                 </span>
               </td>
               <!-- Step 1: View before update -->
               <td style="padding: 12px; text-align: center;">
                 <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('invoice-@i.Id').showModal()">
-                  👁️ View Statement
+                  View Statement
                 </button>
               </td>
               <!-- Step 2: Update status -->
@@ -97,7 +97,7 @@
   <form method="post" asp-controller="Admin" asp-action="CreateInvoice" class="dialog-card wide">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2DACB; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
       <h2 style="color: #4A3525; margin: 0; font-size: 1.4rem;">Generate Tax Invoice</h2>
-      <button type="button" onclick="this.closest('dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #777;">✕</button>
+      <button type="button" onclick="this.closest('dialog').close()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #777;" aria-label="Close">&times;</button>
     </div>
 
     <div class="two" style="margin-bottom: 1rem;">
@@ -164,7 +164,7 @@
     </div>
 
     <div style="background: #FAF7F2; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.85rem; color: #555;">
-      ✉️ <strong>Notice:</strong> When generated, the invoice will immediately be dispatched via email to the client with Standard Bank EFT details.
+      <strong>Notice:</strong> When generated, the invoice will immediately be dispatched via email to the client with Standard Bank EFT details.
     </div>
 
     <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">

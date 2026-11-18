@@ -129,13 +129,43 @@ function initClientBookingPicker(clientId, bookingId, onPick) {
     const client = document.getElementById(clientId), booking = document.getElementById(bookingId);
     if (!client || !booking) return;
     const all = Array.from(booking.options).slice(1);
-    function refill() {
+
+    function filterByClient() {
+        const selectedClient = client.value;
+        const currentBookingVal = booking.value;
         booking.length = 1;
-        all.filter(o => o.dataset.client === client.value).forEach(o => booking.add(o.cloneNode(true)));
+        if (!selectedClient) {
+            all.forEach(o => booking.add(o.cloneNode(true)));
+        } else {
+            all.filter(o => o.dataset.client && o.dataset.client.toLowerCase() === selectedClient.toLowerCase())
+               .forEach(o => booking.add(o.cloneNode(true)));
+        }
+        if (currentBookingVal) {
+            for (let i = 0; i < booking.options.length; i++) {
+                if (booking.options[i].value === currentBookingVal) {
+                    booking.selectedIndex = i;
+                    break;
+                }
+            }
+        }
     }
-    client.addEventListener('change', refill);
-    booking.addEventListener('change', () => onPick && onPick(booking.selectedOptions[0]));
-    refill();
+
+    function onBookingChange() {
+        const opt = booking.selectedOptions[0];
+        if (opt && opt.dataset.client) {
+            for (let i = 0; i < client.options.length; i++) {
+                if (client.options[i].value.toLowerCase() === opt.dataset.client.toLowerCase()) {
+                    client.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        if (onPick && opt) onPick(opt);
+    }
+
+    client.addEventListener('change', filterByClient);
+    booking.addEventListener('change', onBookingChange);
+    filterByClient();
 }
 
 // Print single invoice
@@ -199,7 +229,7 @@ window.applyTheme = function(theme) {
     }
 
     document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
-        btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+        btn.textContent = isDark ? 'Light Mode' : 'Dark Mode';
         btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
     });
 };

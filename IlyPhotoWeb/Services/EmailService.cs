@@ -100,7 +100,7 @@ public class EmailService : IEmailService
         </table>
 
         <div class='eft-box'>
-            <div class='eft-title'>🏦 Direct EFT Payment Instructions:</div>
+            <div class='eft-title'>Direct EFT Payment Instructions:</div>
             <pre style='font-family: inherit; font-size: 13px; margin: 0; line-height: 1.6; white-space: pre-wrap;'>{bankDetails}</pre>
             <p style='margin: 8px 0 0 0; font-size: 12px; color: #555;'>
                 <strong>Important:</strong> Please use <strong>{inv.InvoiceNo}</strong> as the payment reference when initiating your bank transfer. Once payment is completed, kindly email your proof of payment (POP) to <a href='mailto:info@ilyphoto.co.za'>info@ilyphoto.co.za</a>.

@@ -84,7 +84,18 @@ public class AuthServiceTests
 
         // Assert
         Assert.False(result.Ok);
-        Assert.Contains("at least 6 characters", result.Error);
+        Assert.Contains("at least 8 characters", result.Error);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithoutSpecialCharacter_ReturnsComplexityFailure()
+    {
+        // Act
+        var result = await _authService.RegisterAsync("John", "john@example.com", "082", "Password123");
+
+        // Assert
+        Assert.False(result.Ok);
+        Assert.Contains("special character", result.Error);
     }
 
     [Fact]
@@ -166,7 +177,7 @@ public class AuthServiceTests
 
         // Assert
         Assert.False(result.Ok);
-        Assert.Contains("at least 6 characters", result.Error);
+        Assert.Contains("at least 8 characters", result.Error);
     }
 
     [Fact]

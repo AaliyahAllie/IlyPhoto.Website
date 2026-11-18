@@ -27,15 +27,15 @@
           <td style="padding: 14px 18px;">
             @if (c.Status == "ok")
             {
-              <span class="badge" style="background-color: #E8F8F5; color: #117A65; border: 1px solid #A2D9CE; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✓ PASS</span>
+              <span class="badge" style="background-color: #E8F8F5; color: #117A65; border: 1px solid #A2D9CE; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">PASS</span>
             }
             else if (c.Status == "warn")
             {
-              <span class="badge" style="background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">⚠ NOTICE</span>
+              <span class="badge" style="background-color: #FEF9E7; color: #B7950B; border: 1px solid #F9E79F; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">NOTICE</span>
             }
             else
             {
-              <span class="badge" style="background-color: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">✕ FAIL</span>
+              <span class="badge" style="background-color: #FDEDEC; color: #C0392B; border: 1px solid #FADBD8; padding: 0.25rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">FAIL</span>
             }
           </td>
           <td style="padding: 14px 18px; font-size: 0.9rem; color: #444; line-height: 1.5;">@c.Detail</td>

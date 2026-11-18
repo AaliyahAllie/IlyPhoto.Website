@@ -31,9 +31,16 @@ public class CalendarController : Controller
         {
             var day = b.EventDate.Day.ToString();
             var mine = !isAdmin && b.Uid == uid;
-            if (b.Status == BookingStatus.Confirmed)
+            bool isConfirmed = !string.IsNullOrWhiteSpace(b.Status) &&
+                (b.Status.Equals(BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase) ||
+                 b.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase) ||
+                 b.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase));
+            bool isPending = !string.IsNullOrWhiteSpace(b.Status) &&
+                b.Status.Equals(BookingStatus.Pending, StringComparison.OrdinalIgnoreCase);
+
+            if (isConfirmed)
                 result[day] = mine ? "mine" : "busy";
-            else if (b.Status == BookingStatus.Pending && mine && !result.ContainsKey(day))
+            else if (isPending && mine && !result.ContainsKey(day))
                 result[day] = "mine";
         }
 

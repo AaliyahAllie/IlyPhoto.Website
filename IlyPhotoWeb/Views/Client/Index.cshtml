@@ -63,7 +63,7 @@
         <div style="flex: 1;">
           <h3 style="margin: 0 0 0.25rem 0; font-size: 1.2rem;">@Model.Next.EventType</h3>
           <p style="margin: 0; color: #666; font-size: 0.9rem;">
-            🕒 @Model.Next.StartTime – @Model.Next.EndTime (@Model.Next.Hours hours) &nbsp;•&nbsp; 📍 @Model.Next.Location
+            @Model.Next.StartTime – @Model.Next.EndTime (@Model.Next.Hours hours) &nbsp;•&nbsp; @Model.Next.Location
           </p>
           @if (!string.IsNullOrEmpty(Model.Next.Notes))
           {
@@ -77,13 +77,13 @@
 
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
     <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
-      <h3 style="color: #4A3525; margin-top: 0;">📸 Access Private Galleries</h3>
+      <h3 style="color: #4A3525; margin-top: 0;">Access Private Galleries</h3>
       <p style="color: #666; font-size: 0.9rem;">View high-resolution photography collections uploaded by Aysha Allie for your events, and download full albums in ZIP format.</p>
       <a asp-action="Gallery" class="btn btn-outline btn-sm" style="margin-top: 0.5rem; text-decoration: none;">Go to Galleries →</a>
     </div>
 
     <div class="card" style="background: #FAF7F2; border: 1px solid #E2DACB; border-radius: 8px; padding: 1.5rem;">
-      <h3 style="color: #4A3525; margin-top: 0;">🏦 Invoices & Bank EFT</h3>
+      <h3 style="color: #4A3525; margin-top: 0;">Invoices & Bank EFT</h3>
       <p style="color: #666; font-size: 0.9rem;">Review tax invoices, access printable banking statement sheets, and make direct EFT payments through your banking app.</p>
       <a asp-action="Invoices" class="btn btn-outline btn-sm" style="margin-top: 0.5rem; text-decoration: none;">View Invoices →</a>
     </div>

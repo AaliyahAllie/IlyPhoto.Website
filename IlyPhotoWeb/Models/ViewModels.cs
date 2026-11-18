@@ -25,7 +25,11 @@ public class RegisterViewModel
     [Phone, StringLength(30)]
     public string? Phone { get; set; }
 
-    [Required(ErrorMessage = "Please choose a password."), StringLength(100, MinimumLength = 6, ErrorMessage = "Your password must be at least 6 characters.")]
+    [Required(ErrorMessage = "Please choose a password.")]
+    [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters.")]
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$",
+        ErrorMessage = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.")]
+    [DataType(DataType.Password)]
     public string Password { get; set; } = "";
 
     [Required(ErrorMessage = "Please confirm your password."), Compare(nameof(Password), ErrorMessage = "The passwords do not match.")]
@@ -37,7 +41,11 @@ public class ForgotPasswordViewModel
     [Required(ErrorMessage = "Please enter your registered email address."), EmailAddress(ErrorMessage = "Please enter a valid email address.")]
     public string Email { get; set; } = "";
 
-    [Required(ErrorMessage = "Please enter a new password."), StringLength(100, MinimumLength = 6, ErrorMessage = "Your new password must be at least 6 characters.")]
+    [Required(ErrorMessage = "Please enter a new password.")]
+    [StringLength(100, MinimumLength = 8, ErrorMessage = "New password must be at least 8 characters.")]
+    [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$",
+        ErrorMessage = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.")]
+    [DataType(DataType.Password)]
     public string NewPassword { get; set; } = "";
 
     [Required(ErrorMessage = "Please confirm your new password."), Compare(nameof(NewPassword), ErrorMessage = "The passwords do not match.")]
@@ -86,6 +94,9 @@ public class GalleryCardViewModel
 {
     public Gallery Gallery { get; set; } = new();
     public string? CoverUrl { get; set; }
+    public bool IsPaid { get; set; } = true;
+    public string? InvoiceNo { get; set; }
+    public string? InvoiceStatus { get; set; }
 }
 
 public class AlbumViewModel

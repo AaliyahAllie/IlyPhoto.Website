@@ -36,6 +36,16 @@ public class AdminController : Controller
         _emails = emails;
     }
 
+    private static bool IsConfirmedBooking(string? status) =>
+        !string.IsNullOrWhiteSpace(status) &&
+        (status.Equals(BookingStatus.Confirmed, StringComparison.OrdinalIgnoreCase) ||
+         status.Equals("Approved", StringComparison.OrdinalIgnoreCase) ||
+         status.Equals("Completed", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsPendingBooking(string? status) =>
+        !string.IsNullOrWhiteSpace(status) &&
+        status.Equals(BookingStatus.Pending, StringComparison.OrdinalIgnoreCase);
+
     // ---------- Dashboard ----------
     public async Task<IActionResult> Index()
     {
@@ -45,13 +55,13 @@ public class AdminController : Controller
 
         var bookings = await _bookings.ListAllAsync();
         var invoices = await _invoices.ListAllAsync();
-        var pending = bookings.Where(b => b.Status == BookingStatus.Pending).ToList();
+        var pending = bookings.Where(b => IsPendingBooking(b.Status)).ToList();
         var outstanding = invoices.Where(i => i.Status != InvoiceStatus.Paid).ToList();
 
         return View(new AdminDashboardViewModel
         {
             PendingCount = pending.Count,
-            UpcomingThisMonth = bookings.Count(b => b.Status == BookingStatus.Confirmed
+            UpcomingThisMonth = bookings.Count(b => IsConfirmedBooking(b.Status)
                 && string.CompareOrdinal(b.Date, todayIso) >= 0 && string.CompareOrdinal(b.Date, monthEnd) <= 0),
             OutstandingCount = outstanding.Count,
             OutstandingTotal = outstanding.Sum(i => i.Total),
@@ -63,12 +73,11 @@ public class AdminController : Controller
     // ---------- Bookings & Availability ----------
     public async Task<IActionResult> Bookings()
     {
-        var todayIso = Format.TodayIso();
         var all = await _bookings.ListAllAsync();
         return View(new AdminBookingsViewModel
         {
-            Pending = all.Where(b => b.Status == BookingStatus.Pending).ToList(),
-            Upcoming = all.Where(b => b.Status == BookingStatus.Confirmed && string.CompareOrdinal(b.Date, todayIso) >= 0).ToList()
+            Pending = all.Where(b => IsPendingBooking(b.Status)).OrderByDescending(b => b.Date).ToList(),
+            Upcoming = all.Where(b => IsConfirmedBooking(b.Status)).OrderByDescending(b => b.Date).ToList()
         });
     }
 
@@ -82,7 +91,7 @@ public class AdminController : Controller
     public async Task<IActionResult> ApproveBooking(string id, string? returnTo)
     {
         var b = await _bookings.GetAsync(id);
-        if (b is null || b.Status != BookingStatus.Pending)
+        if (b is null || !IsPendingBooking(b.Status))
         {
             TempData["AdminError"] = "That request is no longer pending.";
         }
@@ -96,13 +105,48 @@ public class AdminController : Controller
         }
         else
         {
+            b.Status = BookingStatus.Confirmed;
             await _bookings.SetStatusAsync(id, BookingStatus.Confirmed);
-            var client = await _users.GetByClientIdAsync(b.ClientId);
+
+            var client = await _users.GetByClientIdAsync(b.ClientId)
+                         ?? await _users.GetAsync(b.Uid)
+                         ?? await _users.GetByEmailAsync(b.ClientEmail);
+
             if (client is not null)
             {
+                if (string.IsNullOrEmpty(b.ClientId))
+                {
+                    b.ClientId = client.ClientId;
+                    await _bookings.CreateAsync(b);
+                }
+
+                // Automatically generate invoice upon approval so client can settle and gallery can be linked
+                var existingInvoices = await _invoices.ListAllAsync();
+                var inv = existingInvoices.FirstOrDefault(i => i.BookingId == b.Id);
+                if (inv == null)
+                {
+                    inv = await _invoices.CreateAsync(new Invoice
+                    {
+                        ClientId = client.ClientId,
+                        BookingId = b.Id,
+                        BookingLabel = b.Label,
+                        IssueDate = Format.TodayIso(),
+                        DueDate = b.Date,
+                        Service = b.EventType,
+                        Quantity = 1,
+                        Price = b.EstimatedTotal,
+                        Total = b.EstimatedTotal,
+                        Status = b.EstimatedTotal == 0 ? InvoiceStatus.Paid : InvoiceStatus.Unpaid,
+                        EmailSent = true
+                    });
+                    b.InvoiceNumber = inv.InvoiceNo;
+                    b.InvoiceStatus = inv.Status;
+                    await _bookings.CreateAsync(b);
+                }
+
                 await _emails.SendBookingConfirmationEmailAsync(b, client);
             }
-            TempData["AdminMessage"] = $"Booking for {b.ClientName} ({b.EventType}) has been confirmed!";
+            TempData["AdminMessage"] = $"Booking for {b.ClientName} ({b.EventType}) has been confirmed and invoice generated!";
         }
         return BackTo(returnTo);
     }
@@ -256,11 +300,26 @@ public class AdminController : Controller
     // ---------- Galleries ----------
     public async Task<IActionResult> Galleries()
     {
+        var allBookings = await _bookings.ListAllAsync();
+        var confirmedBookings = allBookings
+            .Where(b => IsConfirmedBooking(b.Status))
+            .ToList();
+
+        var clients = await _users.ListClientsAsync();
+        foreach (var b in confirmedBookings)
+        {
+            if (!string.IsNullOrEmpty(b.ClientId) && !clients.Any(c => c.ClientId.Equals(b.ClientId, StringComparison.OrdinalIgnoreCase)))
+            {
+                var c = await _users.GetByClientIdAsync(b.ClientId) ?? await _users.GetAsync(b.Uid) ?? await _users.GetByEmailAsync(b.ClientEmail);
+                if (c != null && !clients.Any(x => x.Id == c.Id)) clients.Add(c);
+            }
+        }
+
         return View(new AdminGalleriesViewModel
         {
             Galleries = await _galleries.ListAllAsync(),
-            Clients = await _users.ListClientsAsync(),
-            Bookings = (await _bookings.ListAllAsync()).Where(b => b.Status == BookingStatus.Confirmed).ToList()
+            Clients = clients.OrderBy(c => c.FullName).ToList(),
+            Bookings = confirmedBookings.OrderByDescending(b => b.Date).ToList()
         });
     }
 
@@ -268,38 +327,58 @@ public class AdminController : Controller
     [RequestSizeLimit(MaxUploadBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     public async Task<IActionResult> UploadGallery(
-        string clientId,
+        string? clientId,
         string? bookingId,
         string title,
         bool allowPortfolio,
         IFormFileCollection photos,
         CancellationToken ct)
     {
-        var client = await _users.GetByClientIdAsync(clientId ?? "");
         Booking? booking = string.IsNullOrEmpty(bookingId) ? null : await _bookings.GetAsync(bookingId);
+        UserProfile? client = null;
+
+        if (!string.IsNullOrEmpty(clientId))
+        {
+            client = await _users.GetByClientIdAsync(clientId) ?? await _users.GetAsync(clientId);
+        }
+
+        if (client is null && booking is not null)
+        {
+            client = await _users.GetByClientIdAsync(booking.ClientId)
+                     ?? await _users.GetAsync(booking.Uid)
+                     ?? await _users.GetByEmailAsync(booking.ClientEmail);
+        }
 
         if (client is null)
-            TempData["AdminError"] = "Client not found.";
-        else if (booking is not null && booking.ClientId != client.ClientId)
-            TempData["AdminError"] = "That booking does not belong to the selected client.";
-        else if (string.IsNullOrWhiteSpace(title) || title.Length > 150)
-            TempData["AdminError"] = "Please provide an album title.";
-        else if (photos is null || photos.Count == 0)
-            TempData["AdminError"] = "Please select at least one photo using the file explorer button.";
-        else
         {
-            var (gallery, skipped) = await _galleries.CreateWithPhotosAsync(new Gallery
-            {
-                ClientId = client.ClientId,
-                BookingId = booking?.Id ?? "",
-                Title = title.Trim(),
-                EventDate = booking?.Date ?? Format.TodayIso(),
-                PortfolioApproved = allowPortfolio
-            }, photos, ct);
-
-            TempData["AdminMessage"] = $"Successfully uploaded {gallery.PhotoCount} photo(s) to \"{gallery.Title}\" for {client.FullName}."
-                + (skipped > 0 ? $" ({skipped} files were skipped: only JPG/PNG/WEBP/GIF up to 50MB supported)." : "");
+            TempData["AdminError"] = "Please select a valid registered client.";
+            return RedirectToAction(nameof(Galleries));
         }
+
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 150)
+        {
+            TempData["AdminError"] = "Please provide an album title.";
+            return RedirectToAction(nameof(Galleries));
+        }
+
+        if (photos is null || photos.Count == 0)
+        {
+            TempData["AdminError"] = "Please select at least one photo using the file explorer button.";
+            return RedirectToAction(nameof(Galleries));
+        }
+
+        var (gallery, skipped) = await _galleries.CreateWithPhotosAsync(new Gallery
+        {
+            ClientId = client.ClientId,
+            BookingId = booking?.Id ?? "",
+            Title = title.Trim(),
+            EventDate = booking?.Date ?? Format.TodayIso(),
+            PortfolioApproved = allowPortfolio
+        }, photos, ct);
+
+        TempData["AdminMessage"] = $"Successfully uploaded {gallery.PhotoCount} photo(s) to \"{gallery.Title}\" for {client.FullName}."
+            + (skipped > 0 ? $" ({skipped} files were skipped: only JPG/PNG/WEBP/GIF up to 50MB supported)." : "");
+
         return RedirectToAction(nameof(Galleries));
     }
 
